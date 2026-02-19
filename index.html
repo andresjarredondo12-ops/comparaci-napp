@@ -41,20 +41,21 @@ button:hover{background:#0056b3;}
     background:#eef2f7;
     border-radius:8px;
 }
-.ok{color:green;font-weight:bold;}
-.diff{color:red;font-weight:bold;}
-.section{
-    margin-top:20px;
-    padding:10px;
-    background:#ffffff;
-    border-left:5px solid #007bff;
+.ok{
+    color:green;
+    font-weight:bold;
+    font-size:18px;
+}
+.diff{
+    color:red;
+    font-weight:bold;
 }
 </style>
 </head>
 
 <body>
 <div class="container">
-<h1>📄 Comparador por Punto + Últimos 5 Dígitos</h1>
+<h1>📄 Comparador Exacto 1101 / 1104</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -80,7 +81,7 @@ async function leerArchivo(file){
     if(extension === "xlsx" || extension === "xls") return await leerExcel(file);
     if(extension === "csv" || extension === "txt") return await leerTexto(file);
 
-    alert("Formato no soportado: " + extension);
+    alert("Formato no soportado");
     return "";
 }
 
@@ -123,64 +124,55 @@ async function leerPDF(file){
 }
 
 /* ===============================
-   LOGICA EXACTA DE COMPARACION
-   Punto (1101/1104) + Ultimos 5
+   NORMALIZACION EXACTA
 ================================ */
 
 function extraerRemitos(texto){
 
-    // Detecta 1101-xxxxx o 1101-xxxxxxxx
+    // Detecta 1101-xxxxx o 1101-xxxxxxxx (igual para 1104)
     const regex = /\b(1101|1104)-(\d{5}|\d{8})\b/g;
 
     let match;
-    let lista = [];
+    let set = new Set();
 
     while((match = regex.exec(texto)) !== null){
 
         let punto = match[1];
         let numero = match[2];
 
-        // Si tiene 8 dígitos → tomar últimos 5
-        if(numero.length === 8){
-            numero = numero.slice(-5);
-        }
+        // Normalizar a últimos 5 dígitos
+        let ultimos5 = numero.slice(-5);
 
-        // Se arma clave única combinando ambos parámetros
-        let clave = punto + "-" + numero;
+        let clave = punto + "-" + ultimos5;
 
-        lista.push(clave);
+        set.add(clave);
     }
 
-    // Quitar duplicados
-    return [...new Set(lista)];
+    return set;
 }
 
-function compararListas(lista1, lista2){
+/* ===============================
+   COMPARACION EXACTA
+================================ */
 
-    let diferencias = [];
-    let coinciden = [];
+function compararSets(set1, set2){
 
-    lista1.forEach(item=>{
-        if(lista2.includes(item)){
-            coinciden.push(item);
-        }else{
-            diferencias.push({
-                numero: item,
-                faltaEn: "Archivo 2"
-            });
+    let faltanEn2 = [];
+    let faltanEn1 = [];
+
+    set1.forEach(valor=>{
+        if(!set2.has(valor)){
+            faltanEn2.push(valor);
         }
     });
 
-    lista2.forEach(item=>{
-        if(!lista1.includes(item)){
-            diferencias.push({
-                numero: item,
-                faltaEn: "Archivo 1"
-            });
+    set2.forEach(valor=>{
+        if(!set1.has(valor)){
+            faltanEn1.push(valor);
         }
     });
 
-    return {coinciden, diferencias};
+    return {faltanEn1, faltanEn2};
 }
 
 /* ===============================
@@ -198,28 +190,41 @@ async function comparar(){
         return;
     }
 
-    resultadoDiv.innerHTML = "Analizando archivos...";
+    resultadoDiv.innerHTML = "Analizando...";
 
     const texto1 = await leerArchivo(file1);
     const texto2 = await leerArchivo(file2);
 
-    const lista1 = extraerRemitos(texto1);
-    const lista2 = extraerRemitos(texto2);
+    const set1 = extraerRemitos(texto1);
+    const set2 = extraerRemitos(texto2);
 
-    const resultado = compararListas(lista1, lista2);
+    const resultado = compararSets(set1, set2);
 
-    let html = "<h3>Resultado Comparación</h3>";
-    html += `<div class="section">`;
+    let html = "";
 
-    html += `<p class="ok">✔ Coincidencias: ${resultado.coinciden.length}</p>`;
+    if(resultado.faltanEn1.length === 0 && resultado.faltanEn2.length === 0){
 
-    html += `<p class="diff"><br>✖ Diferencias detectadas: ${resultado.diferencias.length}</p>`;
+        html = `<p class="ok">✅ Comparación completa: Están todos los remitos en ambos archivos.</p>`;
+        html += `<p>Total detectados: ${set1.size}</p>`;
 
-    resultado.diferencias.forEach(dif=>{
-        html += `<p class="diff">${dif.numero} → Falta en ${dif.faltaEn}</p>`;
-    });
+    }else{
 
-    html += `</div>`;
+        html = `<p class="diff">⚠ Se detectaron diferencias</p>`;
+
+        if(resultado.faltanEn2.length > 0){
+            html += `<p class="diff"><br>Faltan en Archivo 2:</p>`;
+            resultado.faltanEn2.forEach(r=>{
+                html += `<p class="diff">${r}</p>`;
+            });
+        }
+
+        if(resultado.faltanEn1.length > 0){
+            html += `<p class="diff"><br>Faltan en Archivo 1:</p>`;
+            resultado.faltanEn1.forEach(r=>{
+                html += `<p class="diff">${r}</p>`;
+            });
+        }
+    }
 
     resultadoDiv.innerHTML = html;
 }
@@ -227,5 +232,4 @@ async function comparar(){
 </script>
 </body>
 </html>
-
 
