@@ -40,6 +40,7 @@ button:hover{background:#0056b3;}
     padding:15px;
     background:#eef2f7;
     border-radius:8px;
+    white-space: pre-wrap;
 }
 .ok{
     color:green;
@@ -64,11 +65,14 @@ button:hover{background:#0056b3;}
 <input type="file" id="file2">
 
 <button onclick="comparar()">Comparar Archivos</button>
+<button onclick="reiniciar()">Reiniciar</button>
 
 <div class="result" id="resultado"></div>
 </div>
 
 <script>
+let contenidoArchivo1 = "";
+let contenidoArchivo2 = "";
 
 /* ===============================
    LECTURA DE ARCHIVOS
@@ -118,7 +122,7 @@ async function leerPDF(file){
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const strings = content.items.map(item=>item.str);
-        texto += strings.join(" ") + " ";
+        texto += strings.join("\n") + "\n";
     }
     return texto;
 }
@@ -128,30 +132,23 @@ async function leerPDF(file){
 ================================ */
 
 function extraerRemitos(texto){
-
-    // Detecta solo formato correcto: 1101- o 1104- seguido de 5 a 8 dígitos
+    // Detecta 1101- o 1104- seguido de 5 a 8 dígitos
     const regex = /\b(1101|1104)-(\d{5,8})\b/g;
-
     let match;
     let set = new Set();
 
     while((match = regex.exec(texto)) !== null){
-
         let punto = match[1];
         let numero = match[2];
-
         let ultimos5;
 
         if(numero.length === 8){
-            // Si tiene 8 → tomar últimos 5
             ultimos5 = numero.slice(3);
         }else{
-            // Si tiene 5 → usar directamente
             ultimos5 = numero;
         }
 
         let clave = punto + "-" + ultimos5;
-
         set.add(clave);
     }
 
@@ -159,24 +156,32 @@ function extraerRemitos(texto){
 }
 
 /* ===============================
+   EXTRAER LINEAS POR REMITO
+================================ */
+
+function lineasPorRemito(texto, remito){
+    let lineas = texto.split(/\r?\n/);
+    let coincidencias = lineas.filter(linea=>{
+        const regex = new RegExp(remito.replace("-","-"), "i");
+        return regex.test(linea);
+    });
+    return coincidencias.length>0 ? coincidencias.join("\n") : "No se encontró la línea";
+}
+
+/* ===============================
    COMPARACION
 ================================ */
 
 function compararSets(set1, set2){
-
     let faltanEn2 = [];
     let faltanEn1 = [];
 
     set1.forEach(valor=>{
-        if(!set2.has(valor)){
-            faltanEn2.push(valor);
-        }
+        if(!set2.has(valor)) faltanEn2.push(valor);
     });
 
     set2.forEach(valor=>{
-        if(!set1.has(valor)){
-            faltanEn1.push(valor);
-        }
+        if(!set1.has(valor)) faltanEn1.push(valor);
     });
 
     return {faltanEn1, faltanEn2};
@@ -187,7 +192,6 @@ function compararSets(set1, set2){
 ================================ */
 
 async function comparar(){
-
     const file1 = document.getElementById("file1").files[0];
     const file2 = document.getElementById("file2").files[0];
     const resultadoDiv = document.getElementById("resultado");
@@ -199,30 +203,28 @@ async function comparar(){
 
     resultadoDiv.innerHTML = "Analizando...";
 
-    const texto1 = await leerArchivo(file1);
-    const texto2 = await leerArchivo(file2);
+    contenidoArchivo1 = await leerArchivo(file1);
+    contenidoArchivo2 = await leerArchivo(file2);
 
-    const set1 = extraerRemitos(texto1);
-    const set2 = extraerRemitos(texto2);
+    const set1 = extraerRemitos(contenidoArchivo1);
+    const set2 = extraerRemitos(contenidoArchivo2);
 
     const resultado = compararSets(set1, set2);
 
     let html = "";
 
     if(resultado.faltanEn1.length === 0 && resultado.faltanEn2.length === 0){
-
         html = `<p class="ok">✅ Comparación completa: Están todos los remitos.</p>`;
         html += `<p>Total Archivo 1: ${set1.size}</p>`;
         html += `<p>Total Archivo 2: ${set2.size}</p>`;
-
     }else{
-
         html = `<p class="diff">⚠ Se detectaron diferencias</p>`;
 
         if(resultado.faltanEn2.length > 0){
             html += `<p class="diff"><br>Faltan en Archivo 2:</p>`;
             resultado.faltanEn2.forEach(r=>{
                 html += `<p class="diff">${r}</p>`;
+                html += `<pre>${lineasPorRemito(contenidoArchivo1,r)}</pre>`;
             });
         }
 
@@ -230,6 +232,7 @@ async function comparar(){
             html += `<p class="diff"><br>Faltan en Archivo 1:</p>`;
             resultado.faltanEn1.forEach(r=>{
                 html += `<p class="diff">${r}</p>`;
+                html += `<pre>${lineasPorRemito(contenidoArchivo2,r)}</pre>`;
             });
         }
     }
@@ -237,6 +240,17 @@ async function comparar(){
     resultadoDiv.innerHTML = html;
 }
 
+/* ===============================
+   REINICIAR
+================================ */
+
+function reiniciar(){
+    document.getElementById("file1").value = "";
+    document.getElementById("file2").value = "";
+    document.getElementById("resultado").innerHTML = "";
+    contenidoArchivo1 = "";
+    contenidoArchivo2 = "";
+}
 </script>
 </body>
 </html>
