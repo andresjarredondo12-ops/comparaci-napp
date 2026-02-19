@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Comparador de Remitos 1101 / 1104</title>
+<title>Comparador Exacto de Remitos</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -54,7 +54,7 @@ button:hover{background:#0056b3;}
 
 <body>
 <div class="container">
-<h1>📄 Comparador Inteligente de Remitos</h1>
+<h1>📄 Comparador por Punto + Últimos 5 Dígitos</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -123,7 +123,8 @@ async function leerPDF(file){
 }
 
 /* ===============================
-   LOGICA REMITOS 1101 / 1104
+   LOGICA EXACTA DE COMPARACION
+   Punto (1101/1104) + Ultimos 5
 ================================ */
 
 function extraerRemitos(texto){
@@ -132,46 +133,54 @@ function extraerRemitos(texto){
     const regex = /\b(1101|1104)-(\d{5}|\d{8})\b/g;
 
     let match;
-    let remitosNormalizados = [];
+    let lista = [];
 
     while((match = regex.exec(texto)) !== null){
 
-        let prefijo = match[1];
+        let punto = match[1];
         let numero = match[2];
 
-        // Si tiene 8 dígitos, tomar últimos 5
+        // Si tiene 8 dígitos → tomar últimos 5
         if(numero.length === 8){
             numero = numero.slice(-5);
         }
 
-        remitosNormalizados.push(prefijo + "-" + numero);
+        // Se arma clave única combinando ambos parámetros
+        let clave = punto + "-" + numero;
+
+        lista.push(clave);
     }
 
-    // Elimina duplicados
-    return [...new Set(remitosNormalizados)];
+    // Quitar duplicados
+    return [...new Set(lista)];
 }
 
-function compararRemitos(lista1, lista2){
+function compararListas(lista1, lista2){
 
+    let diferencias = [];
     let coinciden = [];
-    let soloEn1 = [];
-    let soloEn2 = [];
 
-    lista1.forEach(remito=>{
-        if(lista2.includes(remito)){
-            coinciden.push(remito);
+    lista1.forEach(item=>{
+        if(lista2.includes(item)){
+            coinciden.push(item);
         }else{
-            soloEn1.push(remito);
+            diferencias.push({
+                numero: item,
+                faltaEn: "Archivo 2"
+            });
         }
     });
 
-    lista2.forEach(remito=>{
-        if(!lista1.includes(remito)){
-            soloEn2.push(remito);
+    lista2.forEach(item=>{
+        if(!lista1.includes(item)){
+            diferencias.push({
+                numero: item,
+                faltaEn: "Archivo 1"
+            });
         }
     });
 
-    return {coinciden, soloEn1, soloEn2};
+    return {coinciden, diferencias};
 }
 
 /* ===============================
@@ -194,23 +203,21 @@ async function comparar(){
     const texto1 = await leerArchivo(file1);
     const texto2 = await leerArchivo(file2);
 
-    const remitos1 = extraerRemitos(texto1);
-    const remitos2 = extraerRemitos(texto2);
+    const lista1 = extraerRemitos(texto1);
+    const lista2 = extraerRemitos(texto2);
 
-    const resultado = compararRemitos(remitos1, remitos2);
+    const resultado = compararListas(lista1, lista2);
 
-    let html = "<h3>Resultado Comparación Remitos</h3>";
-
+    let html = "<h3>Resultado Comparación</h3>";
     html += `<div class="section">`;
 
-    html += `<p class="ok">✔ Coinciden (${resultado.coinciden.length})</p>`;
-    html += resultado.coinciden.length ? resultado.coinciden.join("<br>") : "Ninguno";
+    html += `<p class="ok">✔ Coincidencias: ${resultado.coinciden.length}</p>`;
 
-    html += `<p class="diff"><br>✖ Solo en Archivo 1 (${resultado.soloEn1.length})</p>`;
-    html += resultado.soloEn1.length ? resultado.soloEn1.join("<br>") : "Ninguno";
+    html += `<p class="diff"><br>✖ Diferencias detectadas: ${resultado.diferencias.length}</p>`;
 
-    html += `<p class="diff"><br>✖ Solo en Archivo 2 (${resultado.soloEn2.length})</p>`;
-    html += resultado.soloEn2.length ? resultado.soloEn2.join("<br>") : "Ninguno";
+    resultado.diferencias.forEach(dif=>{
+        html += `<p class="diff">${dif.numero} → Falta en ${dif.faltaEn}</p>`;
+    });
 
     html += `</div>`;
 
@@ -220,3 +227,5 @@ async function comparar(){
 </script>
 </body>
 </html>
+
+
