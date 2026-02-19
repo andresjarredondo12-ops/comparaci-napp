@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Comparador Exacto de Remitos</title>
+<title>Comparador Profesional de Remitos</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -55,7 +55,7 @@ button:hover{background:#0056b3;}
 
 <body>
 <div class="container">
-<h1>📄 Comparador Punto + Últimos 5 Dígitos</h1>
+<h1>📄 Comparador 1101 / 1104 (Últimos 5 Dígitos)</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -124,20 +124,13 @@ async function leerPDF(file){
 }
 
 /* ===============================
-   NORMALIZACION ROBUSTA
+   EXTRACCION Y NORMALIZACION
 ================================ */
 
 function extraerRemitos(texto){
 
-    /*
-    Detecta:
-    1101-52953
-    1101-00052953
-    1101-0052953
-    1104-xxxxx
-    */
-
-    const regex = /\b(1101|1104)-(\d{5,12})\b/g;
+    // Detecta solo formato correcto: 1101- o 1104- seguido de 5 a 8 dígitos
+    const regex = /\b(1101|1104)-(\d{5,8})\b/g;
 
     let match;
     let set = new Set();
@@ -147,14 +140,15 @@ function extraerRemitos(texto){
         let punto = match[1];
         let numero = match[2];
 
-        // Quitar ceros iniciales
-        numero = numero.replace(/^0+/, '');
+        let ultimos5;
 
-        // Si después de quitar ceros queda vacío
-        if(numero === "") numero = "0";
-
-        // Tomar últimos 5 dígitos reales
-        let ultimos5 = numero.slice(-5).padStart(5, '0');
+        if(numero.length === 8){
+            // Si tiene 8 → tomar últimos 5
+            ultimos5 = numero.slice(3);
+        }else{
+            // Si tiene 5 → usar directamente
+            ultimos5 = numero;
+        }
 
         let clave = punto + "-" + ultimos5;
 
@@ -165,7 +159,7 @@ function extraerRemitos(texto){
 }
 
 /* ===============================
-   COMPARACION EXACTA
+   COMPARACION
 ================================ */
 
 function compararSets(set1, set2){
@@ -217,9 +211,9 @@ async function comparar(){
 
     if(resultado.faltanEn1.length === 0 && resultado.faltanEn2.length === 0){
 
-        html = `<p class="ok">✅ Comparación completa: Están todos los remitos en ambos archivos.</p>`;
-        html += `<p>Total detectados Archivo 1: ${set1.size}</p>`;
-        html += `<p>Total detectados Archivo 2: ${set2.size}</p>`;
+        html = `<p class="ok">✅ Comparación completa: Están todos los remitos.</p>`;
+        html += `<p>Total Archivo 1: ${set1.size}</p>`;
+        html += `<p>Total Archivo 2: ${set2.size}</p>`;
 
     }else{
 
