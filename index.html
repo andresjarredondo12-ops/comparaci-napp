@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Comparador Inteligente de Documentos</title>
+
+<!-- Librerías -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body{
+    font-family: Arial;
+    background:#f4f6f9;
+    padding:20px;
+}
+.container{
+    max-width:900px;
+    margin:auto;
+    background:white;
+    padding:25px;
+    border-radius:10px;
+    box-shadow:0 0 15px rgba(0,0,0,0.1);
+}
+h1{
+    text-align:center;
+}
+input, textarea, button{
+    margin-top:10px;
+    width:100%;
+    padding:8px;
+}
+button{
+    background:#007bff;
+    color:white;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+button:hover{
+    background:#0056b3;
+}
+.result{
+    margin-top:20px;
+    padding:15px;
+    background:#eef2f7;
+    border-radius:8px;
+}
+.diff{
+    color:red;
+    font-weight:bold;
+}
+.ok{
+    color:green;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>📄 Comparador de Documentos</h1>
+
+<label>Subir Archivo 1:</label>
+<input type="file" id="file1">
+
+<label>Subir Archivo 2:</label>
+<input type="file" id="file2">
+
+<label>Parámetros a comparar (separados por coma):</label>
+<textarea id="params" placeholder="Ej: remito, cliente, importe, fecha"></textarea>
+
+<button onclick="comparar()">Comparar Archivos</button>
+
+<div class="result" id="resultado"></div>
+</div>
+
+<script>
+
+async function leerArchivo(file){
+    const extension = file.name.split('.').pop().toLowerCase();
+
+    if(extension === "pdf"){
+        return await leerPDF(file);
+    }
+    if(extension === "xlsx" || extension === "xls"){
+        return await leerExcel(file);
+    }
+    if(extension === "csv" || extension === "txt"){
+        return await leerTexto(file);
+    }
+
+    alert("Formato no soportado: " + extension);
+    return "";
+}
+
+async function leerTexto(file){
+    return new Promise((resolve)=>{
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.readAsText(file);
+    });
+}
+
+async function leerExcel(file){
+    return new Promise((resolve)=>{
+        const reader = new FileReader();
+        reader.onload = function(e){
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data,{type:'array'});
+            let texto = "";
+            workbook.SheetNames.forEach(name=>{
+                const sheet = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+                texto += sheet;
+            });
+            resolve(texto);
+        }
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function leerPDF(file){
+    const pdfData = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
+    let texto = "";
+
+    for(let i=1;i<=pdf.numPages;i++){
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const strings = content.items.map(item=>item.str);
+        texto += strings.join(" ") + " ";
+    }
+    return texto;
+}
+
+function buscarParametro(texto,param){
+    const regex = new RegExp(param + "\\s*[:\\-]?\\s*([\\w\\d\\.\\/\\-]+)", "i");
+    const match = texto.match(regex);
+    return match ? match[1] : "NO ENCONTRADO";
+}
+
+async function comparar(){
+    const file1 = document.getElementById("file1").files[0];
+    const file2 = document.getElementById("file2").files[0];
+    const params = document.getElementById("params").value.split(",").map(p=>p.trim());
+    const resultadoDiv = document.getElementById("resultado");
+
+    if(!file1 || !file2){
+        alert("Debes subir ambos archivos");
+        return;
+    }
+
+    resultadoDiv.innerHTML = "Analizando archivos...";
+
+    const texto1 = await leerArchivo(file1);
+    const texto2 = await leerArchivo(file2);
+
+    let resultadoHTML = "<h3>Resultado de Comparación:</h3>";
+
+    params.forEach(param=>{
+        if(param === "") return;
+
+        const val1 = buscarParametro(texto1,param);
+        const val2 = buscarParametro(texto2,param);
+
+        if(val1 === val2){
+            resultadoHTML += `<p class="ok">✔ ${param}: Coinciden (${val1})</p>`;
+        }else{
+            resultadoHTML += `<p class="diff">✖ ${param}: Diferencia detectada → Archivo1: ${val1} | Archivo2: ${val2}</p>`;
+        }
+    });
+
+    resultadoDiv.innerHTML = resultadoHTML;
+}
+
+</script>
+
+</body>
+</html>
