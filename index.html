@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Comparador Inteligente de Documentos - Remitos</title>
+<title>Comparador de Remitos 1101 / 1104</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -22,7 +22,7 @@ body{
     box-shadow:0 0 15px rgba(0,0,0,0.1);
 }
 h1{text-align:center;}
-input, textarea, button{
+input, button{
     margin-top:10px;
     width:100%;
     padding:8px;
@@ -54,7 +54,7 @@ button:hover{background:#0056b3;}
 
 <body>
 <div class="container">
-<h1>📄 Comparador Avanzado de Documentos</h1>
+<h1>📄 Comparador Inteligente de Remitos</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -62,15 +62,16 @@ button:hover{background:#0056b3;}
 <label>Subir Archivo 2:</label>
 <input type="file" id="file2">
 
-<label>Otros parámetros a comparar (separados por coma):</label>
-<textarea id="params" placeholder="Ej: cliente, importe, fecha"></textarea>
-
 <button onclick="comparar()">Comparar Archivos</button>
 
 <div class="result" id="resultado"></div>
 </div>
 
 <script>
+
+/* ===============================
+   LECTURA DE ARCHIVOS
+================================ */
 
 async function leerArchivo(file){
     const extension = file.name.split('.').pop().toLowerCase();
@@ -122,43 +123,51 @@ async function leerPDF(file){
 }
 
 /* ===============================
-   FUNCION ESPECIAL PARA REMITOS
-   =============================== */
+   LOGICA REMITOS 1101 / 1104
+================================ */
 
 function extraerRemitos(texto){
-    const regex = /\b(1101|1104)-?0*(\d{1,8})\b/g;
+
+    // Detecta 1101-xxxxx o 1101-xxxxxxxx
+    const regex = /\b(1101|1104)-(\d{5}|\d{8})\b/g;
+
     let match;
-    let remitos = [];
+    let remitosNormalizados = [];
 
     while((match = regex.exec(texto)) !== null){
+
         let prefijo = match[1];
-        let numeroCompleto = match[2];
+        let numero = match[2];
 
-        // Tomamos los últimos 5 dígitos
-        let ultimos5 = numeroCompleto.slice(-5);
+        // Si tiene 8 dígitos, tomar últimos 5
+        if(numero.length === 8){
+            numero = numero.slice(-5);
+        }
 
-        remitos.push(prefijo + "-" + ultimos5);
+        remitosNormalizados.push(prefijo + "-" + numero);
     }
 
-    return [...new Set(remitos)];
+    // Elimina duplicados
+    return [...new Set(remitosNormalizados)];
 }
 
-function compararRemitos(remitos1, remitos2){
+function compararRemitos(lista1, lista2){
+
     let coinciden = [];
     let soloEn1 = [];
     let soloEn2 = [];
 
-    remitos1.forEach(r=>{
-        if(remitos2.includes(r)){
-            coinciden.push(r);
+    lista1.forEach(remito=>{
+        if(lista2.includes(remito)){
+            coinciden.push(remito);
         }else{
-            soloEn1.push(r);
+            soloEn1.push(remito);
         }
     });
 
-    remitos2.forEach(r=>{
-        if(!remitos1.includes(r)){
-            soloEn2.push(r);
+    lista2.forEach(remito=>{
+        if(!lista1.includes(remito)){
+            soloEn2.push(remito);
         }
     });
 
@@ -166,24 +175,13 @@ function compararRemitos(remitos1, remitos2){
 }
 
 /* ===============================
-   PARAMETROS GENERALES
-   =============================== */
-
-function buscarParametro(texto,param){
-    const regex = new RegExp(param + "\\s*[:\\-]?\\s*([\\w\\d\\.\\/\\-]+)", "i");
-    const match = texto.match(regex);
-    return match ? match[1] : "NO ENCONTRADO";
-}
-
-/* ===============================
    FUNCION PRINCIPAL
-   =============================== */
+================================ */
 
 async function comparar(){
 
     const file1 = document.getElementById("file1").files[0];
     const file2 = document.getElementById("file2").files[0];
-    const params = document.getElementById("params").value.split(",").map(p=>p.trim());
     const resultadoDiv = document.getElementById("resultado");
 
     if(!file1 || !file2){
@@ -196,46 +194,27 @@ async function comparar(){
     const texto1 = await leerArchivo(file1);
     const texto2 = await leerArchivo(file2);
 
-    let resultadoHTML = "<h3>Resultado de Comparación</h3>";
-
-    /* ===== COMPARACION DE REMITOS ===== */
-
     const remitos1 = extraerRemitos(texto1);
     const remitos2 = extraerRemitos(texto2);
 
-    const resultadoRemitos = compararRemitos(remitos1, remitos2);
+    const resultado = compararRemitos(remitos1, remitos2);
 
-    resultadoHTML += `<div class="section"><h4>Comparación de Remitos (1101 / 1104)</h4>`;
+    let html = "<h3>Resultado Comparación Remitos</h3>";
 
-    resultadoHTML += `<p class="ok">✔ Coinciden (${resultadoRemitos.coinciden.length})</p>`;
-    resultadoHTML += resultadoRemitos.coinciden.join("<br>");
+    html += `<div class="section">`;
 
-    resultadoHTML += `<p class="diff"><br>✖ Solo en Archivo 1 (${resultadoRemitos.soloEn1.length})</p>`;
-    resultadoHTML += resultadoRemitos.soloEn1.join("<br>");
+    html += `<p class="ok">✔ Coinciden (${resultado.coinciden.length})</p>`;
+    html += resultado.coinciden.length ? resultado.coinciden.join("<br>") : "Ninguno";
 
-    resultadoHTML += `<p class="diff"><br>✖ Solo en Archivo 2 (${resultadoRemitos.soloEn2.length})</p>`;
-    resultadoHTML += resultadoRemitos.soloEn2.join("<br>");
+    html += `<p class="diff"><br>✖ Solo en Archivo 1 (${resultado.soloEn1.length})</p>`;
+    html += resultado.soloEn1.length ? resultado.soloEn1.join("<br>") : "Ninguno";
 
-    resultadoHTML += `</div>`;
+    html += `<p class="diff"><br>✖ Solo en Archivo 2 (${resultado.soloEn2.length})</p>`;
+    html += resultado.soloEn2.length ? resultado.soloEn2.join("<br>") : "Ninguno";
 
-    /* ===== OTROS PARAMETROS ===== */
+    html += `</div>`;
 
-    if(params[0] !== ""){
-        resultadoHTML += `<div class="section"><h4>Otros Parámetros</h4>`;
-        params.forEach(param=>{
-            const val1 = buscarParametro(texto1,param);
-            const val2 = buscarParametro(texto2,param);
-
-            if(val1 === val2){
-                resultadoHTML += `<p class="ok">✔ ${param}: Coinciden (${val1})</p>`;
-            }else{
-                resultadoHTML += `<p class="diff">✖ ${param}: Diferencia → Archivo1: ${val1} | Archivo2: ${val2}</p>`;
-            }
-        });
-        resultadoHTML += `</div>`;
-    }
-
-    resultadoDiv.innerHTML = resultadoHTML;
+    resultadoDiv.innerHTML = html;
 }
 
 </script>
