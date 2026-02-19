@@ -55,7 +55,7 @@ button:hover{background:#0056b3;}
 
 <body>
 <div class="container">
-<h1>📄 Comparador Exacto 1101 / 1104</h1>
+<h1>📄 Comparador Punto + Últimos 5 Dígitos</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -124,13 +124,20 @@ async function leerPDF(file){
 }
 
 /* ===============================
-   NORMALIZACION EXACTA
+   NORMALIZACION ROBUSTA
 ================================ */
 
 function extraerRemitos(texto){
 
-    // Detecta 1101-xxxxx o 1101-xxxxxxxx (igual para 1104)
-    const regex = /\b(1101|1104)-(\d{5}|\d{8})\b/g;
+    /*
+    Detecta:
+    1101-52953
+    1101-00052953
+    1101-0052953
+    1104-xxxxx
+    */
+
+    const regex = /\b(1101|1104)-(\d{5,12})\b/g;
 
     let match;
     let set = new Set();
@@ -140,8 +147,14 @@ function extraerRemitos(texto){
         let punto = match[1];
         let numero = match[2];
 
-        // Normalizar a últimos 5 dígitos
-        let ultimos5 = numero.slice(-5);
+        // Quitar ceros iniciales
+        numero = numero.replace(/^0+/, '');
+
+        // Si después de quitar ceros queda vacío
+        if(numero === "") numero = "0";
+
+        // Tomar últimos 5 dígitos reales
+        let ultimos5 = numero.slice(-5).padStart(5, '0');
 
         let clave = punto + "-" + ultimos5;
 
@@ -205,7 +218,8 @@ async function comparar(){
     if(resultado.faltanEn1.length === 0 && resultado.faltanEn2.length === 0){
 
         html = `<p class="ok">✅ Comparación completa: Están todos los remitos en ambos archivos.</p>`;
-        html += `<p>Total detectados: ${set1.size}</p>`;
+        html += `<p>Total detectados Archivo 1: ${set1.size}</p>`;
+        html += `<p>Total detectados Archivo 2: ${set2.size}</p>`;
 
     }else{
 
@@ -232,4 +246,3 @@ async function comparar(){
 </script>
 </body>
 </html>
-
