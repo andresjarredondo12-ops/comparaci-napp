@@ -132,8 +132,8 @@ async function leerPDF(file){
 ================================ */
 
 function extraerRemitos(texto){
-    // Detecta 1101- o 1104- seguido de 5 a 8 dígitos
-    const regex = /\b(1101|1104)-(\d{5,8})\b/g;
+    // Detecta 1101-, 1104- o 3008- seguido de 5 a 8 dígitos
+    const regex = /\b(1101|1104|3008)-(\d{5,8})\b/g;
     let match;
     let set = new Set();
 
