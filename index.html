@@ -22,11 +22,13 @@ body{
     box-shadow:0 0 15px rgba(0,0,0,0.1);
 }
 h1{text-align:center;}
+
 input, button{
     margin-top:10px;
     width:100%;
     padding:8px;
 }
+
 button{
     background:#007bff;
     color:white;
@@ -34,7 +36,11 @@ button{
     border-radius:5px;
     cursor:pointer;
 }
-button:hover{background:#0056b3;}
+
+button:hover{
+    background:#0056b3;
+}
+
 .result{
     margin-top:20px;
     padding:15px;
@@ -42,11 +48,13 @@ button:hover{background:#0056b3;}
     border-radius:8px;
     white-space: pre-wrap;
 }
+
 .ok{
     color:green;
     font-weight:bold;
     font-size:18px;
 }
+
 .diff{
     color:red;
     font-weight:bold;
@@ -55,8 +63,10 @@ button:hover{background:#0056b3;}
 </head>
 
 <body>
+
 <div class="container">
-<h1>📄 Comparador 1101 / 1104 (Últimos 5 Dígitos)</h1>
+
+<h1>📄 Comparador 1101 / 1104 / 0104 / 3008</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -68,189 +78,296 @@ button:hover{background:#0056b3;}
 <button onclick="reiniciar()">Reiniciar</button>
 
 <div class="result" id="resultado"></div>
+
 </div>
 
 <script>
-let contenidoArchivo1 = "";
-let contenidoArchivo2 = "";
 
-/* ===============================
-   LECTURA DE ARCHIVOS
-================================ */
+let contenidoArchivo1="";
+let contenidoArchivo2="";
+
+/* ======================================
+LECTURA DE ARCHIVOS
+====================================== */
 
 async function leerArchivo(file){
-    const extension = file.name.split('.').pop().toLowerCase();
 
-    if(extension === "pdf") return await leerPDF(file);
-    if(extension === "xlsx" || extension === "xls") return await leerExcel(file);
-    if(extension === "csv" || extension === "txt") return await leerTexto(file);
+    const extension=file.name.split('.').pop().toLowerCase();
+
+    if(extension==="pdf") return await leerPDF(file);
+
+    if(extension==="xlsx" || extension==="xls")
+        return await leerExcel(file);
+
+    if(extension==="csv" || extension==="txt")
+        return await leerTexto(file);
 
     alert("Formato no soportado");
+
     return "";
 }
 
 async function leerTexto(file){
+
     return new Promise(resolve=>{
-        const reader = new FileReader();
-        reader.onload = e=>resolve(e.target.result);
+
+        const reader=new FileReader();
+
+        reader.onload=e=>resolve(e.target.result);
+
         reader.readAsText(file);
+
     });
+
 }
 
 async function leerExcel(file){
+
     return new Promise(resolve=>{
-        const reader = new FileReader();
-        reader.onload = function(e){
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data,{type:'array'});
-            let texto = "";
+
+        const reader=new FileReader();
+
+        reader.onload=function(e){
+
+            const data=new Uint8Array(e.target.result);
+
+            const workbook=XLSX.read(data,{type:'array'});
+
+            let texto="";
+
             workbook.SheetNames.forEach(name=>{
-                texto += XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+
+                texto+=XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+
             });
+
             resolve(texto);
+
         }
+
         reader.readAsArrayBuffer(file);
+
     });
+
 }
 
 async function leerPDF(file){
-    const pdfData = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
-    let texto = "";
+
+    const pdfData=await file.arrayBuffer();
+
+    const pdf=await pdfjsLib.getDocument({data:pdfData}).promise;
+
+    let texto="";
 
     for(let i=1;i<=pdf.numPages;i++){
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map(item=>item.str);
-        texto += strings.join("\n") + "\n";
+
+        const page=await pdf.getPage(i);
+
+        const content=await page.getTextContent();
+
+        const strings=content.items.map(item=>item.str);
+
+        texto+=strings.join("\n")+"\n";
+
     }
+
     return texto;
+
 }
 
-/* ===============================
-   EXTRACCION Y NORMALIZACION
-================================ */
+/* ======================================
+EXTRACCION DE REMITOS
+====================================== */
 
 function extraerRemitos(texto){
-    // Detecta 1101-, 1104- o 3008- seguido de 5 a 8 dígitos
-    const regex = /\b(1101|1104|3008)-(\d{5,8})\b/g;
-    let match;
-    let set = new Set();
 
-    while((match = regex.exec(texto)) !== null){
-        let punto = match[1];
-        let numero = match[2];
+    const regex=/\b(1101|1104|0104|3008)[-\s]?(\d{5,8})\b/g;
+
+    let match;
+
+    let set=new Set();
+
+    while((match=regex.exec(texto))!==null){
+
+        let punto=match[1];
+
+        let numero=match[2];
+
         let ultimos5;
 
-        if(numero.length === 8){
-            ultimos5 = numero.slice(3);
+        if(numero.length>5){
+
+            ultimos5=numero.slice(-5);
+
         }else{
-            ultimos5 = numero;
+
+            ultimos5=numero;
+
         }
 
-        let clave = punto + "-" + ultimos5;
+        let clave=punto+"-"+ultimos5;
+
         set.add(clave);
+
     }
 
     return set;
+
 }
 
-/* ===============================
-   EXTRAER LINEAS POR REMITO
-================================ */
+/* ======================================
+BUSCAR LINEAS RELEVANTES
+====================================== */
 
-function lineasPorRemito(texto, remito){
-    let lineas = texto.split(/\r?\n/);
-    let coincidencias = lineas.filter(linea=>{
-        const regex = new RegExp(remito.replace("-","-"), "i");
-        return regex.test(linea);
+function lineasPorRemito(texto,remito){
+
+    let lineas=texto.split(/\r?\n/);
+
+    let palabras=["comprobante","comprobantes","oblea","obleas"];
+
+    let coincidencias=lineas.filter(linea=>{
+
+        let contieneRemito=linea.includes(remito.split("-")[1]);
+
+        let contienePalabra=palabras.some(p=>linea.toLowerCase().includes(p));
+
+        return contieneRemito || contienePalabra;
+
     });
-    return coincidencias.length>0 ? coincidencias.join("\n") : "No se encontró la línea";
+
+    return coincidencias.length>0
+        ? coincidencias.join("\n")
+        : "No se encontró la línea";
+
 }
 
-/* ===============================
-   COMPARACION
-================================ */
+/* ======================================
+COMPARACION
+====================================== */
 
-function compararSets(set1, set2){
-    let faltanEn2 = [];
-    let faltanEn1 = [];
+function compararSets(set1,set2){
+
+    let faltanEn2=[];
+
+    let faltanEn1=[];
 
     set1.forEach(valor=>{
+
         if(!set2.has(valor)) faltanEn2.push(valor);
+
     });
 
     set2.forEach(valor=>{
+
         if(!set1.has(valor)) faltanEn1.push(valor);
+
     });
 
-    return {faltanEn1, faltanEn2};
+    return {faltanEn1,faltanEn2};
+
 }
 
-/* ===============================
-   FUNCION PRINCIPAL
-================================ */
+/* ======================================
+FUNCION PRINCIPAL
+====================================== */
 
 async function comparar(){
-    const file1 = document.getElementById("file1").files[0];
-    const file2 = document.getElementById("file2").files[0];
-    const resultadoDiv = document.getElementById("resultado");
+
+    const file1=document.getElementById("file1").files[0];
+
+    const file2=document.getElementById("file2").files[0];
+
+    const resultadoDiv=document.getElementById("resultado");
 
     if(!file1 || !file2){
+
         alert("Debes subir ambos archivos");
+
         return;
+
     }
 
-    resultadoDiv.innerHTML = "Analizando...";
+    resultadoDiv.innerHTML="Analizando archivos...";
 
-    contenidoArchivo1 = await leerArchivo(file1);
-    contenidoArchivo2 = await leerArchivo(file2);
+    contenidoArchivo1=await leerArchivo(file1);
 
-    const set1 = extraerRemitos(contenidoArchivo1);
-    const set2 = extraerRemitos(contenidoArchivo2);
+    contenidoArchivo2=await leerArchivo(file2);
 
-    const resultado = compararSets(set1, set2);
+    const set1=extraerRemitos(contenidoArchivo1);
 
-    let html = "";
+    const set2=extraerRemitos(contenidoArchivo2);
 
-    if(resultado.faltanEn1.length === 0 && resultado.faltanEn2.length === 0){
-        html = `<p class="ok">✅ Comparación completa: Están todos los remitos.</p>`;
-        html += `<p>Total Archivo 1: ${set1.size}</p>`;
-        html += `<p>Total Archivo 2: ${set2.size}</p>`;
-    }else{
-        html = `<p class="diff">⚠ Se detectaron diferencias</p>`;
+    const resultado=compararSets(set1,set2);
 
-        if(resultado.faltanEn2.length > 0){
-            html += `<p class="diff"><br>Faltan en Archivo 2:</p>`;
+    let html="";
+
+    if(resultado.faltanEn1.length===0 && resultado.faltanEn2.length===0){
+
+        html=`<p class="ok">✅ Comparación completa: Están todos los remitos.</p>`;
+
+        html+=`<p>Total Archivo 1: ${set1.size}</p>`;
+
+        html+=`<p>Total Archivo 2: ${set2.size}</p>`;
+
+    }
+
+    else{
+
+        html=`<p class="diff">⚠ Se detectaron diferencias</p>`;
+
+        if(resultado.faltanEn2.length>0){
+
+            html+=`<p class="diff"><br>Faltan en Archivo 2:</p>`;
+
             resultado.faltanEn2.forEach(r=>{
-                html += `<p class="diff">${r}</p>`;
-                html += `<pre>${lineasPorRemito(contenidoArchivo1,r)}</pre>`;
+
+                html+=`<p class="diff">${r}</p>`;
+
+                html+=`<pre>${lineasPorRemito(contenidoArchivo1,r)}</pre>`;
+
             });
+
         }
 
-        if(resultado.faltanEn1.length > 0){
-            html += `<p class="diff"><br>Faltan en Archivo 1:</p>`;
+        if(resultado.faltanEn1.length>0){
+
+            html+=`<p class="diff"><br>Faltan en Archivo 1:</p>`;
+
             resultado.faltanEn1.forEach(r=>{
-                html += `<p class="diff">${r}</p>`;
-                html += `<pre>${lineasPorRemito(contenidoArchivo2,r)}</pre>`;
+
+                html+=`<p class="diff">${r}</p>`;
+
+                html+=`<pre>${lineasPorRemito(contenidoArchivo2,r)}</pre>`;
+
             });
+
         }
+
     }
 
-    resultadoDiv.innerHTML = html;
+    resultadoDiv.innerHTML=html;
+
 }
 
-/* ===============================
-   REINICIAR
-================================ */
+/* ======================================
+REINICIAR
+====================================== */
 
 function reiniciar(){
-    document.getElementById("file1").value = "";
-    document.getElementById("file2").value = "";
-    document.getElementById("resultado").innerHTML = "";
-    contenidoArchivo1 = "";
-    contenidoArchivo2 = "";
+
+    document.getElementById("file1").value="";
+
+    document.getElementById("file2").value="";
+
+    document.getElementById("resultado").innerHTML="";
+
+    contenidoArchivo1="";
+
+    contenidoArchivo2="";
+
 }
+
 </script>
+
 </body>
 </html>
