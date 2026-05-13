@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -11,9 +12,6 @@
 
 <!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<!-- OCR IMÁGENES -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
 
@@ -117,11 +115,18 @@ Reiniciar
 
 <br><br>
 
-• PDF  
+• PDF con texto real  
 • Excel (.xls / .xlsx)  
 • CSV / TXT  
-• JPG / PNG / WEBP  
-• Capturas de pantalla  
+
+<br><br>
+
+⚠ IMPORTANTE:
+
+<br><br>
+
+Las imágenes JPG / PNG y PDFs escaneados NO se procesan
+para evitar errores de OCR y falsos faltantes.
 
 </div>
 
@@ -170,19 +175,10 @@ async function leerArchivo(file){
         return await leerTexto(file);
     }
 
-    // IMAGENES
-    if([
-        "jpg",
-        "jpeg",
-        "png",
-        "webp",
-        "bmp"
-    ].includes(extension)){
-
-        return await leerImagen(file);
-    }
-
-    alert("Formato no soportado");
+    alert(
+        "Formato no soportado.\n\n" +
+        "Solo PDF, Excel, CSV o TXT."
+    );
 
     return "";
 }
@@ -275,55 +271,10 @@ async function leerPDF(file){
 }
 
 /* =====================================================
-OCR IMAGENES
-===================================================== */
-
-async function leerImagen(file){
-
-    document.getElementById("resultado").innerHTML=
-    `
-    <p class="loading">
-    🧠 Leyendo imagen...
-    </p>
-    `;
-
-    const resultado =
-    await Tesseract.recognize(
-        file,
-        'eng',
-        {
-            logger:m=>{
-
-                if(m.status==="recognizing text"){
-
-                    document.getElementById("resultado").innerHTML=
-                    `
-                    <p class="loading">
-                    OCR:
-                    ${parseInt(m.progress*100)}%
-                    </p>
-                    `;
-                }
-            }
-        }
-    );
-
-    return resultado.data.text;
-}
-
-/* =====================================================
 EXTRAER COMPROBANTES
 ===================================================== */
 
 function extraerComprobantes(texto){
-
-    // Limpieza básica OCR
-    texto = texto
-
-    .replace(/O/g,"0")
-    .replace(/o/g,"0")
-    .replace(/I/g,"1")
-    .replace(/l/g,"1");
 
     /*
     Detecta:
@@ -453,7 +404,7 @@ async function comparar(){
         </p>
         `;
 
-        // TODO OK
+        // SIN DIFERENCIAS
         if(
             resultado.faltanEn1.length===0 &&
             resultado.faltanEn2.length===0
@@ -466,7 +417,7 @@ async function comparar(){
             `;
         }
 
-        // DIFERENCIAS
+        // CON DIFERENCIAS
         else{
 
             html += `
@@ -475,7 +426,7 @@ async function comparar(){
             </p>
             `;
 
-            // FALTAN EN 2
+            // FALTAN EN ARCHIVO 2
             if(resultado.faltanEn2.length>0){
 
                 html += `
@@ -490,7 +441,7 @@ async function comparar(){
                 });
             }
 
-            // FALTAN EN 1
+            // FALTAN EN ARCHIVO 1
             if(resultado.faltanEn1.length>0){
 
                 html += `
