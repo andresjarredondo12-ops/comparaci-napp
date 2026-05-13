@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -10,10 +9,10 @@
 <!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-<!-- EXCEL -->
+<!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<!-- OCR -->
+<!-- OCR IMÁGENES -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
@@ -35,12 +34,14 @@ body{
 
 h1{
     text-align:center;
+    margin-bottom:25px;
 }
 
 input,button{
     width:100%;
     padding:10px;
     margin-top:10px;
+    font-size:15px;
 }
 
 button{
@@ -60,6 +61,7 @@ button:hover{
     background:#eef2f7;
     padding:15px;
     border-radius:8px;
+    white-space:pre-wrap;
 }
 
 .ok{
@@ -78,11 +80,11 @@ button:hover{
     font-weight:bold;
 }
 
-pre{
-    background:white;
+.info{
+    background:#fff3cd;
     padding:10px;
-    border-radius:5px;
-    overflow:auto;
+    border-radius:6px;
+    margin-top:15px;
 }
 
 </style>
@@ -93,18 +95,35 @@ pre{
 
 <div class="container">
 
-<h1>📄 Comparador Inteligente</h1>
+<h1>📄 Comparador de Comprobantes</h1>
 
+<label>Archivo 1</label>
 <input type="file" id="file1">
+
+<label>Archivo 2</label>
 <input type="file" id="file2">
 
 <button onclick="comparar()">
-Comparar
+Comparar Archivos
 </button>
 
 <button onclick="reiniciar()">
 Reiniciar
 </button>
+
+<div class="info">
+
+✅ Soporta:
+
+<br><br>
+
+• PDF  
+• Excel (.xls / .xlsx)  
+• CSV / TXT  
+• JPG / PNG / WEBP  
+• Capturas de pantalla  
+
+</div>
 
 <div class="result" id="resultado"></div>
 
@@ -115,36 +134,55 @@ Reiniciar
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+let contenidoArchivo1="";
+let contenidoArchivo2="";
+
 /* =====================================================
 LECTURA GENERAL
 ===================================================== */
 
 async function leerArchivo(file){
 
-    const ext=file.name.split('.').pop().toLowerCase();
+    const extension =
+    file.name.split('.').pop().toLowerCase();
 
-    if(ext==="pdf"){
+    // PDF
+    if(extension==="pdf"){
+
         return await leerPDF(file);
     }
 
-    if(ext==="xlsx" || ext==="xls"){
+    // EXCEL
+    if(
+        extension==="xlsx" ||
+        extension==="xls"
+    ){
+
         return await leerExcel(file);
     }
 
-    if(ext==="csv" || ext==="txt"){
+    // TXT / CSV
+    if(
+        extension==="csv" ||
+        extension==="txt"
+    ){
+
         return await leerTexto(file);
     }
 
+    // IMAGENES
     if([
         "jpg",
         "jpeg",
         "png",
-        "bmp",
-        "webp"
-    ].includes(ext)){
+        "webp",
+        "bmp"
+    ].includes(extension)){
 
         return await leerImagen(file);
     }
+
+    alert("Formato no soportado");
 
     return "";
 }
@@ -159,7 +197,10 @@ async function leerTexto(file){
 
         const reader=new FileReader();
 
-        reader.onload=e=>resolve(e.target.result);
+        reader.onload=e=>{
+
+            resolve(e.target.result);
+        };
 
         reader.readAsText(file);
 
@@ -178,21 +219,21 @@ async function leerExcel(file){
 
         reader.onload=function(e){
 
-            const data=new Uint8Array(e.target.result);
+            const data =
+            new Uint8Array(e.target.result);
 
-            const workbook=XLSX.read(data,{
-                type:'array'
-            });
+            const workbook =
+            XLSX.read(data,{type:'array'});
 
             let texto="";
 
             workbook.SheetNames.forEach(name=>{
 
-                texto+=XLSX.utils.sheet_to_csv(
+                texto += XLSX.utils.sheet_to_csv(
                     workbook.Sheets[name]
                 );
 
-                texto+="\n";
+                texto += "\n";
             });
 
             resolve(texto);
@@ -208,9 +249,10 @@ PDF
 
 async function leerPDF(file){
 
-    const pdfData=await file.arrayBuffer();
+    const pdfData = await file.arrayBuffer();
 
-    const pdf=await pdfjsLib.getDocument({
+    const pdf =
+    await pdfjsLib.getDocument({
         data:pdfData
     }).promise;
 
@@ -220,25 +262,33 @@ async function leerPDF(file){
 
         const page=await pdf.getPage(i);
 
-        const content=await page.getTextContent();
+        const content=
+        await page.getTextContent();
 
-        const strings=content.items.map(
-            item=>item.str
-        );
+        const strings=
+        content.items.map(item=>item.str);
 
-        texto+=strings.join(" ")+"\n";
+        texto += strings.join(" ") + "\n";
     }
 
     return texto;
 }
 
 /* =====================================================
-OCR IMAGEN
+OCR IMAGENES
 ===================================================== */
 
 async function leerImagen(file){
 
-    const resultado=await Tesseract.recognize(
+    document.getElementById("resultado").innerHTML=
+    `
+    <p class="loading">
+    🧠 Leyendo imagen...
+    </p>
+    `;
+
+    const resultado =
+    await Tesseract.recognize(
         file,
         'eng',
         {
@@ -262,21 +312,18 @@ async function leerImagen(file){
 }
 
 /* =====================================================
-EXTRACCION SIMPLE Y PRECISA
+EXTRAER COMPROBANTES
 ===================================================== */
 
 function extraerComprobantes(texto){
 
-    // LIMPIEZA OCR
-    texto=texto
+    // Limpieza básica OCR
+    texto = texto
 
     .replace(/O/g,"0")
     .replace(/o/g,"0")
     .replace(/I/g,"1")
-    .replace(/l/g,"1")
-
-    // QUITA BASURA
-    .replace(/[^\d\s\-]/g," ");
+    .replace(/l/g,"1");
 
     /*
     Detecta:
@@ -285,51 +332,52 @@ function extraerComprobantes(texto){
     110500007717
     */
 
-    const regex=
+    const regex =
     /(1101|1104|0104|3008|1105)[\s\-]*0*(\d{5,8})/g;
-
-    const encontrados=new Set();
 
     let match;
 
+    const set = new Set();
+
     while((match=regex.exec(texto))!==null){
 
-        let tipo=match[1];
+        const tipo = match[1];
 
-        let numero=match[2];
+        let numero = match[2];
 
-        numero=numero.padStart(8,"0");
+        numero = numero.padStart(8,"0");
 
-        encontrados.add(
-            tipo+"-"+numero
-        );
+        const comprobante =
+        tipo + "-" + numero;
+
+        set.add(comprobante);
     }
 
-    return encontrados;
+    return set;
 }
 
 /* =====================================================
 COMPARAR
 ===================================================== */
 
-function obtenerDiferencias(set1,set2){
+function compararSets(set1,set2){
 
-    const faltanEn2=[];
-    const faltanEn1=[];
+    let faltanEn2=[];
+    let faltanEn1=[];
 
-    set1.forEach(item=>{
+    set1.forEach(valor=>{
 
-        if(!set2.has(item)){
+        if(!set2.has(valor)){
 
-            faltanEn2.push(item);
+            faltanEn2.push(valor);
         }
     });
 
-    set2.forEach(item=>{
+    set2.forEach(valor=>{
 
-        if(!set1.has(item)){
+        if(!set1.has(valor)){
 
-            faltanEn1.push(item);
+            faltanEn1.push(valor);
         }
     });
 
@@ -340,127 +388,134 @@ function obtenerDiferencias(set1,set2){
 }
 
 /* =====================================================
-PRINCIPAL
+FUNCION PRINCIPAL
 ===================================================== */
 
 async function comparar(){
 
-    const file1=
+    const file1 =
     document.getElementById("file1").files[0];
 
-    const file2=
+    const file2 =
     document.getElementById("file2").files[0];
 
-    const resultado=
+    const resultadoDiv =
     document.getElementById("resultado");
 
     if(!file1 || !file2){
 
-        alert("Subí ambos archivos");
+        alert("Debes subir ambos archivos");
 
         return;
     }
 
-    resultado.innerHTML=
-    `<p class="loading">Procesando...</p>`;
+    resultadoDiv.innerHTML=
+    `
+    <p class="loading">
+    ⏳ Procesando archivos...
+    </p>
+    `;
 
     try{
 
-        const texto1=
+        contenidoArchivo1 =
         await leerArchivo(file1);
 
-        const texto2=
+        contenidoArchivo2 =
         await leerArchivo(file2);
 
-        const comprobantes1=
-        extraerComprobantes(texto1);
-
-        const comprobantes2=
-        extraerComprobantes(texto2);
-
-        console.log(comprobantes1);
-        console.log(comprobantes2);
-
-        const diferencias=
-        obtenerDiferencias(
-            comprobantes1,
-            comprobantes2
+        const set1 =
+        extraerComprobantes(
+            contenidoArchivo1
         );
+
+        const set2 =
+        extraerComprobantes(
+            contenidoArchivo2
+        );
+
+        const resultado =
+        compararSets(set1,set2);
 
         let html="";
 
-        html+=`
+        html += `
         <p>
         <b>Total Archivo 1:</b>
-        ${comprobantes1.size}
+        ${set1.size}
         </p>
         `;
 
-        html+=`
+        html += `
         <p>
         <b>Total Archivo 2:</b>
-        ${comprobantes2.size}
+        ${set2.size}
         </p>
         `;
 
+        // TODO OK
         if(
-            diferencias.faltanEn1.length===0 &&
-            diferencias.faltanEn2.length===0
+            resultado.faltanEn1.length===0 &&
+            resultado.faltanEn2.length===0
         ){
 
-            html+=`
+            html += `
             <p class="ok">
             ✅ Ambos archivos coinciden
             </p>
             `;
+        }
 
-        }else{
+        // DIFERENCIAS
+        else{
 
-            html+=`
+            html += `
             <p class="diff">
             ⚠ Se encontraron diferencias
             </p>
             `;
 
-            if(diferencias.faltanEn2.length){
+            // FALTAN EN 2
+            if(resultado.faltanEn2.length>0){
 
-                html+=`
+                html += `
                 <h3 class="diff">
                 Faltan en Archivo 2
                 </h3>
                 `;
 
-                diferencias.faltanEn2.forEach(x=>{
+                resultado.faltanEn2.forEach(x=>{
 
-                    html+=`<p>${x}</p>`;
+                    html += `<p>${x}</p>`;
                 });
             }
 
-            if(diferencias.faltanEn1.length){
+            // FALTAN EN 1
+            if(resultado.faltanEn1.length>0){
 
-                html+=`
+                html += `
                 <h3 class="diff">
                 Faltan en Archivo 1
                 </h3>
                 `;
 
-                diferencias.faltanEn1.forEach(x=>{
+                resultado.faltanEn1.forEach(x=>{
 
-                    html+=`<p>${x}</p>`;
+                    html += `<p>${x}</p>`;
                 });
             }
         }
 
-        resultado.innerHTML=html;
+        resultadoDiv.innerHTML=html;
 
     }catch(error){
 
         console.error(error);
 
-        resultado.innerHTML=
+        resultadoDiv.innerHTML=
         `
         <p class="diff">
-        Error procesando archivos
+        ❌ Error procesando archivos
         </p>
         `;
     }
@@ -474,7 +529,11 @@ function reiniciar(){
 
     document.getElementById("file1").value="";
     document.getElementById("file2").value="";
+
     document.getElementById("resultado").innerHTML="";
+
+    contenidoArchivo1="";
+    contenidoArchivo2="";
 }
 
 </script>
