@@ -2,31 +2,50 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Comparador Profesional de Remitos</title>
 
+<!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<!-- OCR IMÁGENES -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
+
 body{
     font-family: Arial;
     background:#f4f6f9;
     padding:20px;
 }
+
 .container{
-    max-width:1000px;
+    max-width:1100px;
     margin:auto;
     background:white;
     padding:25px;
     border-radius:10px;
     box-shadow:0 0 15px rgba(0,0,0,0.1);
 }
-h1{text-align:center;}
 
-input, button{
+h1{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+label{
+    font-weight:bold;
+}
+
+input,button{
     margin-top:10px;
     width:100%;
-    padding:8px;
+    padding:10px;
+    font-size:15px;
 }
 
 button{
@@ -35,6 +54,7 @@ button{
     border:none;
     border-radius:5px;
     cursor:pointer;
+    transition:0.3s;
 }
 
 button:hover{
@@ -59,6 +79,33 @@ button:hover{
     color:red;
     font-weight:bold;
 }
+
+.loading{
+    color:#0d6efd;
+    font-weight:bold;
+}
+
+.preview{
+    margin-top:10px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.preview img{
+    width:120px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+.info{
+    background:#fff3cd;
+    padding:10px;
+    border-radius:6px;
+    margin-top:15px;
+    font-size:14px;
+}
+
 </style>
 </head>
 
@@ -66,7 +113,7 @@ button:hover{
 
 <div class="container">
 
-<h1>📄 Comparador 1101 / 1104 / 0104 / 3008</h1>
+<h1>📄 Comparador Profesional de Remitos</h1>
 
 <label>Subir Archivo 1:</label>
 <input type="file" id="file1">
@@ -77,43 +124,87 @@ button:hover{
 <button onclick="comparar()">Comparar Archivos</button>
 <button onclick="reiniciar()">Reiniciar</button>
 
+<div class="info">
+✅ Soporta:
+<br>
+• PDF
+<br>
+• Excel (.xls / .xlsx)
+<br>
+• CSV / TXT
+<br>
+• Imágenes (.jpg .jpeg .png .bmp .webp)
+<br>
+• Capturas de pantalla
+<br>
+• Recortes escaneados
+</div>
+
+<div class="preview" id="preview"></div>
+
 <div class="result" id="resultado"></div>
 
 </div>
 
 <script>
 
-let contenidoArchivo1="";
-let contenidoArchivo2="";
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-/* ======================================
-LECTURA DE ARCHIVOS
-====================================== */
+let contenidoArchivo1 = "";
+let contenidoArchivo2 = "";
+
+/* =====================================================
+LECTURA GENERAL
+===================================================== */
 
 async function leerArchivo(file){
 
-    const extension=file.name.split('.').pop().toLowerCase();
+    const extension = file.name.split('.').pop().toLowerCase();
 
-    if(extension==="pdf") return await leerPDF(file);
+    // PDF
+    if(extension === "pdf"){
+        return await leerPDF(file);
+    }
 
-    if(extension==="xlsx" || extension==="xls")
+    // EXCEL
+    if(extension === "xlsx" || extension === "xls"){
         return await leerExcel(file);
+    }
 
-    if(extension==="csv" || extension==="txt")
+    // TEXTO
+    if(extension === "csv" || extension === "txt"){
         return await leerTexto(file);
+    }
 
-    alert("Formato no soportado");
+    // IMÁGENES
+    if([
+        "jpg",
+        "jpeg",
+        "png",
+        "bmp",
+        "webp"
+    ].includes(extension)){
+
+        return await leerImagenOCR(file);
+    }
+
+    alert("Formato no soportado: " + extension);
 
     return "";
 }
+
+/* =====================================================
+LECTURA TXT / CSV
+===================================================== */
 
 async function leerTexto(file){
 
     return new Promise(resolve=>{
 
-        const reader=new FileReader();
+        const reader = new FileReader();
 
-        reader.onload=e=>resolve(e.target.result);
+        reader.onload = e => resolve(e.target.result);
 
         reader.readAsText(file);
 
@@ -121,23 +212,31 @@ async function leerTexto(file){
 
 }
 
+/* =====================================================
+LECTURA EXCEL
+===================================================== */
+
 async function leerExcel(file){
 
     return new Promise(resolve=>{
 
-        const reader=new FileReader();
+        const reader = new FileReader();
 
-        reader.onload=function(e){
+        reader.onload = function(e){
 
-            const data=new Uint8Array(e.target.result);
+            const data = new Uint8Array(e.target.result);
 
-            const workbook=XLSX.read(data,{type:'array'});
+            const workbook = XLSX.read(data,{type:'array'});
 
-            let texto="";
+            let texto = "";
 
             workbook.SheetNames.forEach(name=>{
 
-                texto+=XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+                texto += XLSX.utils.sheet_to_csv(
+                    workbook.Sheets[name]
+                );
+
+                texto += "\n";
 
             });
 
@@ -151,23 +250,29 @@ async function leerExcel(file){
 
 }
 
+/* =====================================================
+LECTURA PDF
+===================================================== */
+
 async function leerPDF(file){
 
-    const pdfData=await file.arrayBuffer();
+    const pdfData = await file.arrayBuffer();
 
-    const pdf=await pdfjsLib.getDocument({data:pdfData}).promise;
+    const pdf = await pdfjsLib.getDocument({
+        data: pdfData
+    }).promise;
 
-    let texto="";
+    let texto = "";
 
     for(let i=1;i<=pdf.numPages;i++){
 
-        const page=await pdf.getPage(i);
+        const page = await pdf.getPage(i);
 
-        const content=await page.getTextContent();
+        const content = await page.getTextContent();
 
-        const strings=content.items.map(item=>item.str);
+        const strings = content.items.map(item=>item.str);
 
-        texto+=strings.join("\n")+"\n";
+        texto += strings.join(" ") + "\n";
 
     }
 
@@ -175,37 +280,113 @@ async function leerPDF(file){
 
 }
 
-/* ======================================
+/* =====================================================
+OCR IMAGENES
+===================================================== */
+
+async function leerImagenOCR(file){
+
+    mostrarPreview(file);
+
+    document.getElementById("resultado").innerHTML =
+        `<p class="loading">🧠 Analizando imagen con OCR...</p>`;
+
+    try{
+
+        const resultado = await Tesseract.recognize(
+            file,
+            'spa+eng',
+            {
+                logger: m => {
+                    if(m.status === "recognizing text"){
+
+                        document.getElementById("resultado").innerHTML =
+                        `<p class="loading">
+                        🧠 OCR en proceso...
+                        ${parseInt(m.progress * 100)}%
+                        </p>`;
+                    }
+                }
+            }
+        );
+
+        return resultado.data.text;
+
+    }catch(error){
+
+        console.error(error);
+
+        alert("Error leyendo imagen OCR");
+
+        return "";
+    }
+
+}
+
+/* =====================================================
+PREVIEW IMAGEN
+===================================================== */
+
+function mostrarPreview(file){
+
+    const preview = document.getElementById("preview");
+
+    const reader = new FileReader();
+
+    reader.onload = function(e){
+
+        const img = document.createElement("img");
+
+        img.src = e.target.result;
+
+        preview.appendChild(img);
+
+    }
+
+    reader.readAsDataURL(file);
+
+}
+
+/* =====================================================
 EXTRACCION DE REMITOS
-====================================== */
+===================================================== */
 
 function extraerRemitos(texto){
 
-    const regex=/\b(1101|1104|0104|3008)[-\s]?(\d{5,8})\b/g;
+    /*
+    Detecta:
+    1101-12345
+    1101 12345
+    110112345
+    3008-00012345
+    */
+
+    const regex =
+    /\b(1101|1104|0104|3008)[-\s]?0*(\d{5,8})\b/g;
 
     let match;
 
-    let set=new Set();
+    let set = new Set();
 
-    while((match=regex.exec(texto))!==null){
+    while((match = regex.exec(texto)) !== null){
 
-        let punto=match[1];
+        let punto = match[1];
 
-        let numero=match[2];
+        let numero = match[2];
 
         let ultimos5;
 
-        if(numero.length>5){
+        if(numero.length > 5){
 
-            ultimos5=numero.slice(-5);
+            ultimos5 = numero.slice(-5);
 
         }else{
 
-            ultimos5=numero;
+            ultimos5 = numero;
 
         }
 
-        let clave=punto+"-"+ultimos5;
+        let clave = punto + "-" + ultimos5;
 
         set.add(clave);
 
@@ -215,69 +396,93 @@ function extraerRemitos(texto){
 
 }
 
-/* ======================================
-BUSCAR LINEAS RELEVANTES
-====================================== */
+/* =====================================================
+BUSCAR LINEAS
+===================================================== */
 
 function lineasPorRemito(texto,remito){
 
-    let lineas=texto.split(/\r?\n/);
+    let lineas = texto.split(/\r?\n/);
 
-    let palabras=["comprobante","comprobantes","oblea","obleas"];
+    let palabras = [
+        "comprobante",
+        "comprobantes",
+        "oblea",
+        "obleas",
+        "remito"
+    ];
 
-    let coincidencias=lineas.filter(linea=>{
+    let coincidencias = lineas.filter(linea=>{
 
-        let contieneRemito=linea.includes(remito.split("-")[1]);
+        let contieneRemito =
+            linea.includes(remito.split("-")[1]);
 
-        let contienePalabra=palabras.some(p=>linea.toLowerCase().includes(p));
+        let contienePalabra =
+            palabras.some(p=>
+                linea.toLowerCase().includes(p)
+            );
 
         return contieneRemito || contienePalabra;
 
     });
 
-    return coincidencias.length>0
+    return coincidencias.length > 0
         ? coincidencias.join("\n")
         : "No se encontró la línea";
 
 }
 
-/* ======================================
+/* =====================================================
 COMPARACION
-====================================== */
+===================================================== */
 
 function compararSets(set1,set2){
 
-    let faltanEn2=[];
+    let faltanEn2 = [];
 
-    let faltanEn1=[];
+    let faltanEn1 = [];
 
     set1.forEach(valor=>{
 
-        if(!set2.has(valor)) faltanEn2.push(valor);
+        if(!set2.has(valor)){
+
+            faltanEn2.push(valor);
+
+        }
 
     });
 
     set2.forEach(valor=>{
 
-        if(!set1.has(valor)) faltanEn1.push(valor);
+        if(!set1.has(valor)){
+
+            faltanEn1.push(valor);
+
+        }
 
     });
 
-    return {faltanEn1,faltanEn2};
+    return {
+        faltanEn1,
+        faltanEn2
+    };
 
 }
 
-/* ======================================
+/* =====================================================
 FUNCION PRINCIPAL
-====================================== */
+===================================================== */
 
 async function comparar(){
 
-    const file1=document.getElementById("file1").files[0];
+    const file1 =
+        document.getElementById("file1").files[0];
 
-    const file2=document.getElementById("file2").files[0];
+    const file2 =
+        document.getElementById("file2").files[0];
 
-    const resultadoDiv=document.getElementById("resultado");
+    const resultadoDiv =
+        document.getElementById("resultado");
 
     if(!file1 || !file2){
 
@@ -287,83 +492,143 @@ async function comparar(){
 
     }
 
-    resultadoDiv.innerHTML="Analizando archivos...";
+    resultadoDiv.innerHTML =
+        `<p class="loading">⏳ Analizando archivos...</p>`;
 
-    contenidoArchivo1=await leerArchivo(file1);
+    try{
 
-    contenidoArchivo2=await leerArchivo(file2);
+        contenidoArchivo1 = await leerArchivo(file1);
 
-    const set1=extraerRemitos(contenidoArchivo1);
+        contenidoArchivo2 = await leerArchivo(file2);
 
-    const set2=extraerRemitos(contenidoArchivo2);
+        console.log("Archivo 1:", contenidoArchivo1);
 
-    const resultado=compararSets(set1,set2);
+        console.log("Archivo 2:", contenidoArchivo2);
 
-    let html="";
+        const set1 =
+            extraerRemitos(contenidoArchivo1);
 
-    if(resultado.faltanEn1.length===0 && resultado.faltanEn2.length===0){
+        const set2 =
+            extraerRemitos(contenidoArchivo2);
 
-        html=`<p class="ok">✅ Comparación completa: Están todos los remitos.</p>`;
+        const resultado =
+            compararSets(set1,set2);
 
-        html+=`<p>Total Archivo 1: ${set1.size}</p>`;
+        let html = "";
 
-        html+=`<p>Total Archivo 2: ${set2.size}</p>`;
+        if(
+            resultado.faltanEn1.length === 0 &&
+            resultado.faltanEn2.length === 0
+        ){
 
-    }
+            html += `
+            <p class="ok">
+            ✅ Comparación completa:
+            Están todos los remitos.
+            </p>
+            `;
 
-    else{
+            html += `
+            <p><b>Total Archivo 1:</b> ${set1.size}</p>
+            `;
 
-        html=`<p class="diff">⚠ Se detectaron diferencias</p>`;
+            html += `
+            <p><b>Total Archivo 2:</b> ${set2.size}</p>
+            `;
 
-        if(resultado.faltanEn2.length>0){
+        }else{
 
-            html+=`<p class="diff"><br>Faltan en Archivo 2:</p>`;
+            html += `
+            <p class="diff">
+            ⚠ Se detectaron diferencias
+            </p>
+            `;
 
-            resultado.faltanEn2.forEach(r=>{
+            // FALTAN EN ARCHIVO 2
+            if(resultado.faltanEn2.length > 0){
 
-                html+=`<p class="diff">${r}</p>`;
+                html += `
+                <p class="diff">
+                <br>Faltan en Archivo 2:
+                </p>
+                `;
 
-                html+=`<pre>${lineasPorRemito(contenidoArchivo1,r)}</pre>`;
+                resultado.faltanEn2.forEach(r=>{
 
-            });
+                    html += `
+                    <p class="diff">${r}</p>
+                    `;
+
+                    html += `
+                    <pre>
+${lineasPorRemito(contenidoArchivo1,r)}
+                    </pre>
+                    `;
+
+                });
+
+            }
+
+            // FALTAN EN ARCHIVO 1
+            if(resultado.faltanEn1.length > 0){
+
+                html += `
+                <p class="diff">
+                <br>Faltan en Archivo 1:
+                </p>
+                `;
+
+                resultado.faltanEn1.forEach(r=>{
+
+                    html += `
+                    <p class="diff">${r}</p>
+                    `;
+
+                    html += `
+                    <pre>
+${lineasPorRemito(contenidoArchivo2,r)}
+                    </pre>
+                    `;
+
+                });
+
+            }
 
         }
 
-        if(resultado.faltanEn1.length>0){
+        resultadoDiv.innerHTML = html;
 
-            html+=`<p class="diff"><br>Faltan en Archivo 1:</p>`;
+    }catch(error){
 
-            resultado.faltanEn1.forEach(r=>{
+        console.error(error);
 
-                html+=`<p class="diff">${r}</p>`;
-
-                html+=`<pre>${lineasPorRemito(contenidoArchivo2,r)}</pre>`;
-
-            });
-
-        }
+        resultadoDiv.innerHTML = `
+        <p class="diff">
+        ❌ Error procesando archivos
+        </p>
+        `;
 
     }
-
-    resultadoDiv.innerHTML=html;
 
 }
 
-/* ======================================
+/* =====================================================
 REINICIAR
-====================================== */
+===================================================== */
 
 function reiniciar(){
 
-    document.getElementById("file1").value="";
+    document.getElementById("file1").value = "";
 
-    document.getElementById("file2").value="";
+    document.getElementById("file2").value = "";
 
-    document.getElementById("resultado").innerHTML="";
+    document.getElementById("resultado").innerHTML = "";
 
-    contenidoArchivo1="";
+    document.getElementById("preview").innerHTML = "";
 
-    contenidoArchivo2="";
+    contenidoArchivo1 = "";
+
+    contenidoArchivo2 = "";
 
 }
 
