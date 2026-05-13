@@ -13,7 +13,7 @@
 <!-- EXCEL -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<!-- OCR PARA JPG / PNG -->
+<!-- OCR -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
@@ -120,14 +120,10 @@ Reiniciar
 • PDF  
 • Excel (.xls / .xlsx)  
 • CSV / TXT  
-• JPG / PNG / WEBP  
-
-<br><br>
-
-✅ Compatible con:
-<br>
-
-1101 / 1104 / 0104 / 3008 / 1105
+• JPG / JPEG  
+• PNG  
+• WEBP  
+• BMP  
 
 </div>
 
@@ -146,19 +142,26 @@ LECTURA GENERAL
 
 async function leerArchivo(file){
 
+    // EXTENSION
+    const nombre = file.name.toLowerCase();
+
     const extension =
-    file.name.split('.').pop().toLowerCase();
+    nombre.substring(
+        nombre.lastIndexOf('.') + 1
+    );
+
+    console.log("EXTENSION:", extension);
 
     // PDF
-    if(extension==="pdf"){
+    if(extension === "pdf"){
 
         return await leerPDF(file);
     }
 
     // EXCEL
     if(
-        extension==="xlsx" ||
-        extension==="xls"
+        extension === "xlsx" ||
+        extension === "xls"
     ){
 
         return await leerExcel(file);
@@ -166,32 +169,32 @@ async function leerArchivo(file){
 
     // TXT / CSV
     if(
-        extension==="csv" ||
-        extension==="txt"
+        extension === "csv" ||
+        extension === "txt"
     ){
 
         return await leerTexto(file);
     }
 
     // IMAGENES
-    if([
-        "jpg",
-        "jpeg",
-        "png",
-        "webp",
-        "bmp"
-    ].includes(extension)){
+    if(
+        extension === "jpg" ||
+        extension === "jpeg" ||
+        extension === "png" ||
+        extension === "webp" ||
+        extension === "bmp"
+    ){
 
         return await leerImagen(file);
     }
 
-    alert("Formato no soportado");
-
-    return "";
+    throw new Error(
+        "Formato no soportado: " + extension
+    );
 }
 
 /* =====================================================
-TXT
+TXT / CSV
 ===================================================== */
 
 async function leerTexto(file){
@@ -200,7 +203,7 @@ async function leerTexto(file){
 
         const reader = new FileReader();
 
-        reader.onload = e => {
+        reader.onload = e=>{
 
             resolve(e.target.result);
         };
@@ -226,7 +229,9 @@ async function leerExcel(file){
             new Uint8Array(e.target.result);
 
             const workbook =
-            XLSX.read(data,{type:'array'});
+            XLSX.read(data,{
+                type:'array'
+            });
 
             let texto = "";
 
@@ -240,7 +245,7 @@ async function leerExcel(file){
             });
 
             resolve(texto);
-        }
+        };
 
         reader.readAsArrayBuffer(file);
     });
@@ -252,7 +257,8 @@ PDF
 
 async function leerPDF(file){
 
-    const pdfData = await file.arrayBuffer();
+    const pdfData =
+    await file.arrayBuffer();
 
     const pdf =
     await pdfjsLib.getDocument({
@@ -263,22 +269,26 @@ async function leerPDF(file){
 
     for(let i=1;i<=pdf.numPages;i++){
 
-        const page = await pdf.getPage(i);
+        const page =
+        await pdf.getPage(i);
 
         const content =
         await page.getTextContent();
 
         const strings =
-        content.items.map(item=>item.str);
+        content.items.map(
+            item=>item.str
+        );
 
-        texto += strings.join(" ") + "\n";
+        texto +=
+        strings.join(" ") + "\n";
     }
 
     return texto;
 }
 
 /* =====================================================
-IMAGENES OCR
+OCR IMAGENES
 ===================================================== */
 
 async function leerImagen(file){
@@ -286,7 +296,7 @@ async function leerImagen(file){
     document.getElementById("resultado").innerHTML =
     `
     <p class="loading">
-    🧠 Analizando imagen...
+    🧠 Leyendo imagen...
     </p>
     `;
 
@@ -297,7 +307,10 @@ async function leerImagen(file){
         {
             logger:m=>{
 
-                if(m.status==="recognizing text"){
+                if(
+                    m.status ===
+                    "recognizing text"
+                ){
 
                     document.getElementById("resultado").innerHTML =
                     `
@@ -320,17 +333,15 @@ EXTRAER COMPROBANTES
 
 function extraerComprobantes(texto){
 
-    // NORMALIZA TEXTO
     texto = texto.toUpperCase();
 
-    // REEMPLAZOS OCR
     texto = texto
     .replace(/O/g,"0")
     .replace(/I/g,"1")
     .replace(/L/g,"1");
 
     /*
-    SOPORTA:
+    FORMATOS:
 
     1105-00007717
     1105 00007717
@@ -340,24 +351,33 @@ function extraerComprobantes(texto){
     const regex =
     /(1101|1104|0104|3008|1105)\D{0,3}(\d{5,12})/g;
 
+    const comprobantes =
+    new Set();
+
     let match;
 
-    const comprobantes = new Set();
+    while(
+        (match = regex.exec(texto))
+        !== null
+    ){
 
-    while((match = regex.exec(texto)) !== null){
+        const tipo =
+        match[1];
 
-        const tipo = match[1];
+        let numero =
+        match[2];
 
-        let numero = match[2];
+        numero =
+        numero.replace(/\D/g,'');
 
-        // SOLO NUMEROS
-        numero = numero.replace(/\D/g,'');
+        if(numero.length < 5){
 
-        // ELIMINA CEROS A LA IZQUIERDA
-        numero = String(parseInt(numero,10));
+            continue;
+        }
 
-        // EVITA NaN
-        if(numero==="NaN") continue;
+        // NORMALIZA
+        numero =
+        parseInt(numero,10).toString();
 
         const codigo =
         tipo + "-" + numero;
@@ -400,7 +420,7 @@ function compararSets(set1,set2){
 }
 
 /* =====================================================
-FUNCION PRINCIPAL
+PRINCIPAL
 ===================================================== */
 
 async function comparar(){
@@ -416,7 +436,9 @@ async function comparar(){
 
     if(!file1 || !file2){
 
-        alert("Debes subir ambos archivos");
+        alert(
+            "Debes subir ambos archivos"
+        );
 
         return;
     }
@@ -436,10 +458,10 @@ async function comparar(){
         const texto2 =
         await leerArchivo(file2);
 
-        console.log("ARCHIVO 1");
+        console.log("TEXTO 1");
         console.log(texto1);
 
-        console.log("ARCHIVO 2");
+        console.log("TEXTO 2");
         console.log(texto2);
 
         const comprobantes1 =
@@ -475,8 +497,8 @@ async function comparar(){
 
         // TODO OK
         if(
-            diferencias.faltanEn1.length===0 &&
-            diferencias.faltanEn2.length===0
+            diferencias.faltanEn1.length === 0 &&
+            diferencias.faltanEn2.length === 0
         ){
 
             html += `
@@ -496,7 +518,9 @@ async function comparar(){
             `;
 
             // FALTAN EN 2
-            if(diferencias.faltanEn2.length > 0){
+            if(
+                diferencias.faltanEn2.length > 0
+            ){
 
                 html += `
                 <h3 class="diff">
@@ -511,7 +535,9 @@ async function comparar(){
             }
 
             // FALTAN EN 1
-            if(diferencias.faltanEn1.length > 0){
+            if(
+                diferencias.faltanEn1.length > 0
+            ){
 
                 html += `
                 <h3 class="diff">
@@ -535,7 +561,7 @@ async function comparar(){
         resultadoDiv.innerHTML =
         `
         <p class="diff">
-        ❌ Error procesando archivos
+        ❌ ${error.message}
         </p>
         `;
     }
