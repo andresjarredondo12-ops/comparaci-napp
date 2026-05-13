@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Comparador Profesional de Remitos</title>
+<title>Comparador de Comprobantes</title>
 
 <!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-<!-- Excel -->
+<!-- EXCEL -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <!-- OCR -->
@@ -24,506 +25,7 @@ body{
 }
 
 .container{
-    max-width:1100px;
-    margin:auto;
-    background:white;
-    padding:25px;
-    border-radius:10px;
-    box-shadow:0 0 15px rgba(0,0,0,0.1);
-}
-
-h1{
-    text-align:center;
-    margin-bottom:25px;
-}
-
-input,button{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-}
-
-button{
-    background:#007bff;
-    color:white;
-    border:none;
-    border-radius:5px;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#0056b3;
-}
-
-.result{
-    margin-top:20px;
-    padding:15px;
-    background:#eef2f7;
-    border-radius:8px;
-    white-space:pre-wrap;
-}
-
-.ok{
-    color:green;
-    font-weight:bold;
-    font-size:18px;
-}
-
-.diff{
-    color:red;
-    font-weight:bold;
-}
-
-.loading{
-    color:#0d6efd;
-    font-weight:bold;
-}
-
-.preview{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    margin-top:15px;
-}
-
-.preview img{
-    width:150px;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-
-.info{
-    margin-top:15px;
-    background:#fff3cd;
-    padding:10px;
-    border-radius:6px;
-}
-
-</style>
-</head>
-
-<body>
-
-<div class="container">
-
-<h1>📄 Comparador Profesional de Remitos</h1>
-
-<label>Archivo 1:</label>
-<input type="file" id="file1">
-
-<label>Archivo 2:</label>
-<input type="file" id="file2">
-
-<button onclick="comparar()">Comparar Archivos</button>
-<button onclick="reiniciar()">Reiniciar</button>
-
-<div class="info">
-✅ Soporta:
-<br><br>
-• PDF
-<br>
-• Excel (.xls / .xlsx)
-<br>
-• CSV / TXT
-<br>
-• Imágenes JPG / PNG / WEBP
-<br>
-• Capturas de pantalla
-<br>
-• Tablas como la imagen enviada
-<br>
-• Formatos:
-1101 / 1104 / 0104 / 3008 / 1105
-</div>
-
-<div class="preview" id="preview"></div>
-
-<div class="result" id="resultado"></div>
-
-</div>
-
-<script>
-
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-let contenidoArchivo1="";
-let contenidoArchivo2="";
-
-/* =========================================================
-LECTURA GENERAL
-========================================================= */
-
-async function leerArchivo(file){
-
-    const extension=file.name.split('.').pop().toLowerCase();
-
-    if(extension==="pdf"){
-        return await leerPDF(file);
-    }
-
-    if(extension==="xlsx" || extension==="xls"){
-        return await leerExcel(file);
-    }
-
-    if(extension==="csv" || extension==="txt"){
-        return await leerTexto(file);
-    }
-
-    if([
-        "jpg",
-        "jpeg",
-        "png",
-        "bmp",
-        "webp"
-    ].includes(extension)){
-
-        return await leerImagenOCR(file);
-    }
-
-    alert("Formato no soportado");
-
-    return "";
-}
-
-/* =========================================================
-TXT / CSV
-========================================================= */
-
-async function leerTexto(file){
-
-    return new Promise(resolve=>{
-
-        const reader=new FileReader();
-
-        reader.onload=e=>resolve(e.target.result);
-
-        reader.readAsText(file);
-
-    });
-
-}
-
-/* =========================================================
-EXCEL
-========================================================= */
-
-async function leerExcel(file){
-
-    return new Promise(resolve=>{
-
-        const reader=new FileReader();
-
-        reader.onload=function(e){
-
-            const data=new Uint8Array(e.target.result);
-
-            const workbook=XLSX.read(data,{type:'array'});
-
-            let texto="";
-
-            workbook.SheetNames.forEach(name=>{
-
-                texto+=XLSX.utils.sheet_to_csv(
-                    workbook.Sheets[name]
-                );
-
-                texto+="\n";
-
-            });
-
-            resolve(texto);
-
-        }
-
-        reader.readAsArrayBuffer(file);
-
-    });
-
-}
-
-/* =========================================================
-PDF
-========================================================= */
-
-async function leerPDF(file){
-
-    const pdfData=await file.arrayBuffer();
-
-    const pdf=await pdfjsLib.getDocument({
-        data:pdfData
-    }).promise;
-
-    let texto="";
-
-    for(let i=1;i<=pdf.numPages;i++){
-
-        const page=await pdf.getPage(i);
-
-        const content=await page.getTextContent();
-
-        const strings=content.items.map(
-            item=>item.str
-        );
-
-        texto+=strings.join(" ")+"\n";
-    }
-
-    return texto;
-}
-
-/* =========================================================
-OCR IMAGENES
-========================================================= */
-
-async function leerImagenOCR(file){
-
-    mostrarPreview(file);
-
-    document.getElementById("resultado").innerHTML=
-    `<p class="loading">🧠 Leyendo imagen...</p>`;
-
-    try{
-
-        const resultado=await Tesseract.recognize(
-            file,
-            'spa+eng',
-            {
-                logger:m=>{
-
-                    if(m.status==="recognizing text"){
-
-                        document.getElementById("resultado").innerHTML=
-                        `
-                        <p class="loading">
-                        🧠 OCR procesando...
-                        ${parseInt(m.progress*100)}%
-                        </p>
-                        `;
-                    }
-                }
-            }
-        );
-
-        return limpiarOCR(resultado.data.text);
-
-    }catch(error){
-
-        console.error(error);
-
-        alert("Error OCR");
-
-        return "";
-    }
-}
-
-/* =========================================================
-MEJORA TEXTO OCR
-========================================================= */
-
-function limpiarOCR(texto){
-
-    return texto
-
-    // Corrige errores típicos OCR
-    .replace(/O/g,"0")
-    .replace(/I/g,"1")
-    .replace(/l/g,"1")
-
-    // Limpia dobles espacios
-    .replace(/\s+/g," ")
-
-    // Limpia saltos raros
-    .replace(/\n+/g,"\n");
-}
-
-/* =========================================================
-PREVIEW IMAGEN
-========================================================= */
-
-function mostrarPreview(file){
-
-    const preview=document.getElementById("preview");
-
-    const reader=new FileReader();
-
-    reader.onload=function(e){
-
-        const img=document.createElement("img");
-
-        img.src=e.target.result;
-
-        preview.appendChild(img);
-    }
-
-    reader.readAsDataURL(file);
-}
-
-/* =========================================================
-EXTRACCION DE COMPROBANTES / REMITOS
-========================================================= */
-
-function extraerRemitos(texto){
-
-    /*
-    Soporta:
-    1105-00007717
-    1105 00007717
-    110500007717
-    */
-
-    const regex=
-    /\b(1101|1104|0104|3008|1105)[-\s]?0*(\d{4,10})\b/g;
-
-    let match;
-
-    let set=new Set();
-
-    while((match=regex.exec(texto))!==null){
-
-        let punto=match[1];
-
-        let numero=match[2];
-
-        // Últimos 5 dígitos
-        let ultimos5=numero.slice(-5);
-
-        let clave=punto+"-"+ultimos5;
-
-        set.add(clave);
-    }
-
-    return set;
-}
-
-/* =========================================================
-BUSCAR LINEAS
-========================================================= */
-
-function lineasPorRemito(texto,remito){
-
-    let lineas=texto.split(/\r?\n/);
-
-    let coincidencias=lineas.filter(linea=>{
-
-        return linea.includes(
-            remito.split("-")[1]
-        );
-
-    });
-
-    return coincidencias.length>0
-        ? coincidencias.join("\n")
-        : "No encontrado";
-}
-
-/* =========================================================
-COMPARAR
-========================================================= */
-
-function compararSets(set1,set2){
-
-    let faltanEn2=[];
-
-    let faltanEn1=[];
-
-    set1.forEach(valor=>{
-
-        if(!set2.has(valor)){
-
-            faltanEn2.push(valor);
-        }
-    });
-
-    set2.forEach(valor=>{
-
-        if(!set1.has(valor)){
-
-            faltanEn1.push(valor);
-        }
-    });
-
-    return {
-        faltanEn1,
-        faltanEn2
-    };
-}
-
-/* =========================================================
-FUNCION PRINCIPAL
-========================================================= */
-
-async function comparar(){
-
-    const file1=
-    document.getElementById("file1").files[0];
-
-    const file2=
-    document.getElementById("file2").files[0];
-
-    const resultadoDiv=
-    document.getElementById("resultado");
-
-    if(!file1 || !file2){
-
-        alert("Debes subir ambos archivos");
-
-        return;
-    }
-
-    resultadoDiv.innerHTML=
-    `<p class="loading">⏳ Procesando archivos...</p>`;
-
-    try{
-
-        contenidoArchivo1=
-        await leerArchivo(file1);
-
-        contenidoArchivo2=
-        await leerArchivo(file2);
-
-        console.log(contenidoArchivo1);
-        console.log(contenidoArchivo2);
-
-        const set1=
-        extraerRemitos(contenidoArchivo1);
-
-        const set2=
-        extraerRemitos(contenidoArchivo2);
-
-        const resultado=
-        compararSets(set1,set2);
-
-        let html="";
-
-        html+=`
-        <p><b>Total Archivo 1:</b> ${set1.size}</p<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Comparador Inteligente de Remitos</title>
-
-<!-- PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-
-<!-- Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<!-- OCR -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-<style>
-
-body{
-    font-family:Arial;
-    background:#f4f6f9;
-    padding:20px;
-}
-
-.container{
-    max-width:1200px;
+    max-width:1000px;
     margin:auto;
     background:white;
     padding:25px;
@@ -558,7 +60,6 @@ button:hover{
     background:#eef2f7;
     padding:15px;
     border-radius:8px;
-    white-space:pre-wrap;
 }
 
 .ok{
@@ -575,26 +76,6 @@ button:hover{
 .loading{
     color:#0d6efd;
     font-weight:bold;
-}
-
-.preview{
-    display:flex;
-    gap:10px;
-    margin-top:15px;
-    flex-wrap:wrap;
-}
-
-.preview img{
-    width:150px;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-
-.info{
-    background:#fff3cd;
-    padding:12px;
-    margin-top:15px;
-    border-radius:6px;
 }
 
 pre{
@@ -605,18 +86,16 @@ pre{
 }
 
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>📄 Comparador Inteligente de Remitos</h1>
+<h1>📄 Comparador Inteligente</h1>
 
-<label>Archivo 1</label>
 <input type="file" id="file1">
-
-<label>Archivo 2</label>
 <input type="file" id="file2">
 
 <button onclick="comparar()">
@@ -627,30 +106,6 @@ Comparar
 Reiniciar
 </button>
 
-<div class="info">
-
-✅ Soporta:
-
-<br><br>
-
-• PDF  
-• Excel  
-• CSV / TXT  
-• Imágenes  
-• Capturas  
-• Tablas escaneadas  
-• OCR inteligente  
-
-<br><br>
-
-✅ Detecta:
-
-1101 / 1104 / 0104 / 3008 / 1105
-
-</div>
-
-<div class="preview" id="preview"></div>
-
 <div class="result" id="resultado"></div>
 
 </div>
@@ -660,12 +115,9 @@ Reiniciar
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-let contenido1="";
-let contenido2="";
-
-/* =========================================================
+/* =====================================================
 LECTURA GENERAL
-========================================================= */
+===================================================== */
 
 async function leerArchivo(file){
 
@@ -691,17 +143,15 @@ async function leerArchivo(file){
         "webp"
     ].includes(ext)){
 
-        return await leerImagenOCR(file);
+        return await leerImagen(file);
     }
-
-    alert("Formato no soportado");
 
     return "";
 }
 
-/* =========================================================
+/* =====================================================
 TXT
-========================================================= */
+===================================================== */
 
 async function leerTexto(file){
 
@@ -716,9 +166,9 @@ async function leerTexto(file){
     });
 }
 
-/* =========================================================
+/* =====================================================
 EXCEL
-========================================================= */
+===================================================== */
 
 async function leerExcel(file){
 
@@ -730,7 +180,9 @@ async function leerExcel(file){
 
             const data=new Uint8Array(e.target.result);
 
-            const workbook=XLSX.read(data,{type:'array'});
+            const workbook=XLSX.read(data,{
+                type:'array'
+            });
 
             let texto="";
 
@@ -750,9 +202,9 @@ async function leerExcel(file){
     });
 }
 
-/* =========================================================
+/* =====================================================
 PDF
-========================================================= */
+===================================================== */
 
 async function leerPDF(file){
 
@@ -780,20 +232,15 @@ async function leerPDF(file){
     return texto;
 }
 
-/* =========================================================
+/* =====================================================
 OCR IMAGEN
-========================================================= */
+===================================================== */
 
-async function leerImagenOCR(file){
-
-    mostrarPreview(file);
-
-    document.getElementById("resultado").innerHTML=
-    `<p class="loading">🧠 Analizando imagen...</p>`;
+async function leerImagen(file){
 
     const resultado=await Tesseract.recognize(
         file,
-        'spa+eng',
+        'eng',
         {
             logger:m=>{
 
@@ -811,136 +258,78 @@ async function leerImagenOCR(file){
         }
     );
 
-    return limpiarOCR(resultado.data.text);
+    return resultado.data.text;
 }
 
-/* =========================================================
-MEJORA OCR
-========================================================= */
+/* =====================================================
+EXTRACCION SIMPLE Y PRECISA
+===================================================== */
 
-function limpiarOCR(texto){
+function extraerComprobantes(texto){
 
-    return texto
+    // LIMPIEZA OCR
+    texto=texto
 
     .replace(/O/g,"0")
     .replace(/o/g,"0")
     .replace(/I/g,"1")
     .replace(/l/g,"1")
-    .replace(/\|/g,"1")
 
-    .replace(/[^\w\s\-\/]/g," ")
+    // QUITA BASURA
+    .replace(/[^\d\s\-]/g," ");
 
-    .replace(/\s+/g," ")
-
-    .trim();
-}
-
-/* =========================================================
-PREVIEW
-========================================================= */
-
-function mostrarPreview(file){
-
-    const preview=document.getElementById("preview");
-
-    const reader=new FileReader();
-
-    reader.onload=function(e){
-
-        const img=document.createElement("img");
-
-        img.src=e.target.result;
-
-        preview.appendChild(img);
-    }
-
-    reader.readAsDataURL(file);
-}
-
-/* =========================================================
-NORMALIZAR COMPROBANTES
-========================================================= */
-
-function normalizarNumero(numero){
-
-    numero=numero.replace(/\D/g,'');
-
-    return numero.padStart(8,'0');
-}
-
-/* =========================================================
-EXTRAER REMITOS
-========================================================= */
-
-function extraerRemitos(texto){
+    /*
+    Detecta:
+    1105-00007717
+    1105 00007717
+    110500007717
+    */
 
     const regex=
-    /(1101|1104|0104|3008|1105)[\s\-\/]*0*(\d{4,10})/gi;
+    /(1101|1104|0104|3008|1105)[\s\-]*0*(\d{5,8})/g;
+
+    const encontrados=new Set();
 
     let match;
-
-    let mapa=new Map();
 
     while((match=regex.exec(texto))!==null){
 
         let tipo=match[1];
 
-        let numero=normalizarNumero(match[2]);
+        let numero=match[2];
 
-        let clave=tipo+"-"+numero;
+        numero=numero.padStart(8,"0");
 
-        mapa.set(clave,{
-            tipo,
-            numero,
-            completo:clave
-        });
+        encontrados.add(
+            tipo+"-"+numero
+        );
     }
 
-    return mapa;
+    return encontrados;
 }
 
-/* =========================================================
-BUSCAR LINEAS
-========================================================= */
-
-function lineasPorRemito(texto,numero){
-
-    const lineas=texto.split(/\r?\n/);
-
-    const ultimos=numero.slice(-5);
-
-    const filtradas=lineas.filter(l=>{
-
-        return l.includes(ultimos);
-    });
-
-    return filtradas.length
-        ? filtradas.join("\n")
-        : "No encontrado";
-}
-
-/* =========================================================
+/* =====================================================
 COMPARAR
-========================================================= */
+===================================================== */
 
-function compararMapas(map1,map2){
+function obtenerDiferencias(set1,set2){
 
-    let faltanEn2=[];
-    let faltanEn1=[];
+    const faltanEn2=[];
+    const faltanEn1=[];
 
-    map1.forEach((valor,key)=>{
+    set1.forEach(item=>{
 
-        if(!map2.has(key)){
+        if(!set2.has(item)){
 
-            faltanEn2.push(valor);
+            faltanEn2.push(item);
         }
     });
 
-    map2.forEach((valor,key)=>{
+    set2.forEach(item=>{
 
-        if(!map1.has(key)){
+        if(!set1.has(item)){
 
-            faltanEn1.push(valor);
+            faltanEn1.push(item);
         }
     });
 
@@ -950,16 +339,20 @@ function compararMapas(map1,map2){
     };
 }
 
-/* =========================================================
+/* =====================================================
 PRINCIPAL
-========================================================= */
+===================================================== */
 
 async function comparar(){
 
-    const file1=document.getElementById("file1").files[0];
-    const file2=document.getElementById("file2").files[0];
+    const file1=
+    document.getElementById("file1").files[0];
 
-    const resultadoDiv=document.getElementById("resultado");
+    const file2=
+    document.getElementById("file2").files[0];
+
+    const resultado=
+    document.getElementById("resultado");
 
     if(!file1 || !file2){
 
@@ -968,38 +361,56 @@ async function comparar(){
         return;
     }
 
-    resultadoDiv.innerHTML=
-    `<p class="loading">⏳ Procesando...</p>`;
+    resultado.innerHTML=
+    `<p class="loading">Procesando...</p>`;
 
     try{
 
-        contenido1=await leerArchivo(file1);
-        contenido2=await leerArchivo(file2);
+        const texto1=
+        await leerArchivo(file1);
 
-        const remitos1=extraerRemitos(contenido1);
-        const remitos2=extraerRemitos(contenido2);
+        const texto2=
+        await leerArchivo(file2);
 
-        console.log(remitos1);
-        console.log(remitos2);
+        const comprobantes1=
+        extraerComprobantes(texto1);
 
-        const resultado=
-        compararMapas(remitos1,remitos2);
+        const comprobantes2=
+        extraerComprobantes(texto2);
+
+        console.log(comprobantes1);
+        console.log(comprobantes2);
+
+        const diferencias=
+        obtenerDiferencias(
+            comprobantes1,
+            comprobantes2
+        );
 
         let html="";
 
         html+=`
-        <p><b>Total Archivo 1:</b> ${remitos1.size}</p>
-        <p><b>Total Archivo 2:</b> ${remitos2.size}</p>
+        <p>
+        <b>Total Archivo 1:</b>
+        ${comprobantes1.size}
+        </p>
+        `;
+
+        html+=`
+        <p>
+        <b>Total Archivo 2:</b>
+        ${comprobantes2.size}
+        </p>
         `;
 
         if(
-            resultado.faltanEn1.length===0 &&
-            resultado.faltanEn2.length===0
+            diferencias.faltanEn1.length===0 &&
+            diferencias.faltanEn2.length===0
         ){
 
             html+=`
             <p class="ok">
-            ✅ Todos los comprobantes coinciden
+            ✅ Ambos archivos coinciden
             </p>
             `;
 
@@ -1007,87 +418,63 @@ async function comparar(){
 
             html+=`
             <p class="diff">
-            ⚠ Se detectaron diferencias
+            ⚠ Se encontraron diferencias
             </p>
             `;
 
-            if(resultado.faltanEn2.length){
+            if(diferencias.faltanEn2.length){
 
                 html+=`
-                <p class="diff">
+                <h3 class="diff">
                 Faltan en Archivo 2
-                </p>
+                </h3>
                 `;
 
-                resultado.faltanEn2.forEach(r=>{
+                diferencias.faltanEn2.forEach(x=>{
 
-                    html+=`
-                    <p class="diff">
-                    ${r.completo}
-                    </p>
-                    `;
-
-                    html+=`
-                    <pre>
-${lineasPorRemito(contenido1,r.numero)}
-                    </pre>
-                    `;
+                    html+=`<p>${x}</p>`;
                 });
             }
 
-            if(resultado.faltanEn1.length){
+            if(diferencias.faltanEn1.length){
 
                 html+=`
-                <p class="diff">
+                <h3 class="diff">
                 Faltan en Archivo 1
-                </p>
+                </h3>
                 `;
 
-                resultado.faltanEn1.forEach(r=>{
+                diferencias.faltanEn1.forEach(x=>{
 
-                    html+=`
-                    <p class="diff">
-                    ${r.completo}
-                    </p>
-                    `;
-
-                    html+=`
-                    <pre>
-${lineasPorRemito(contenido2,r.numero)}
-                    </pre>
-                    `;
+                    html+=`<p>${x}</p>`;
                 });
             }
         }
 
-        resultadoDiv.innerHTML=html;
+        resultado.innerHTML=html;
 
     }catch(error){
 
         console.error(error);
 
-        resultadoDiv.innerHTML=
+        resultado.innerHTML=
         `
         <p class="diff">
-        ❌ Error procesando archivos
+        Error procesando archivos
         </p>
         `;
     }
 }
 
-/* =========================================================
+/* =====================================================
 REINICIAR
-========================================================= */
+===================================================== */
 
 function reiniciar(){
 
     document.getElementById("file1").value="";
     document.getElementById("file2").value="";
     document.getElementById("resultado").innerHTML="";
-    document.getElementById("preview").innerHTML="";
-
-    contenido1="";
-    contenido2="";
 }
 
 </script>
