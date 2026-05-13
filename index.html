@@ -10,8 +10,11 @@
 <!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-<!-- Excel -->
+<!-- EXCEL -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- OCR PARA JPG / PNG -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <style>
 
@@ -112,21 +115,19 @@ Reiniciar
 <div class="info">
 
 ✅ Soporta:
-
 <br><br>
 
-• PDF con texto real  
+• PDF  
 • Excel (.xls / .xlsx)  
 • CSV / TXT  
+• JPG / PNG / WEBP  
 
 <br><br>
 
-⚠ IMPORTANTE:
+✅ Compatible con:
+<br>
 
-<br><br>
-
-Las imágenes JPG / PNG y PDFs escaneados NO se procesan
-para evitar errores de OCR y falsos faltantes.
+1101 / 1104 / 0104 / 3008 / 1105
 
 </div>
 
@@ -138,9 +139,6 @@ para evitar errores de OCR y falsos faltantes.
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-let contenidoArchivo1="";
-let contenidoArchivo2="";
 
 /* =====================================================
 LECTURA GENERAL
@@ -175,384 +173,25 @@ async function leerArchivo(file){
         return await leerTexto(file);
     }
 
-    alert(
-        "Formato no soportado.\n\n" +
-        "Solo PDF, Excel, CSV o TXT."
-    );
+    // IMAGENES
+    if([
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "bmp"
+    ].includes(extension)){
+
+        return await leerImagen(file);
+    }
+
+    alert("Formato no soportado");
 
     return "";
 }
 
 /* =====================================================
 TXT
-===================================================== */
-
-async function leerTexto(file){
-
-    return new Promise(resolve=>{
-
-        const reader=new FileReader();
-
-        reader.onload=e=>{
-
-            resolve(e.target.result);
-        };
-
-        reader.readAsText(file);
-
-    });
-}
-
-/* =====================================================
-EXCEL
-===================================================== */
-
-async function leerExcel(file){
-
-    return new Promise(resolve=>{
-
-        const reader=new FileReader();
-
-        reader.onload=function(e){
-
-            const data =
-            new Uint8Array(e.target.result);
-
-            const workbook =
-            XLSX.read(data,{type:'array'});
-
-            let texto="";
-
-            workbook.SheetNames.forEach(name=>{
-
-                texto += XLSX.utils.sheet_to_csv(
-                    workbook.Sheets[name]
-                );
-
-                texto += "\n";
-            });
-
-            resolve(texto);
-        }
-
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-/* =====================================================
-PDF
-===================================================== */
-
-async function leerPDF(file){
-
-    const pdfData = await file.arrayBuffer();
-
-    const pdf =
-    await pdfjsLib.getDocument({
-        data:pdfData
-    }).promise;
-
-    let texto="";
-
-    for(let i=1;i<=pdf.numPages;i++){
-
-        const page=await pdf.getPage(i);
-
-        const content=
-        await page.getTextContent();
-
-        const strings=
-        content.items.map(item=>item.str);
-
-        texto += strings.join(" ") + "\n";
-    }
-
-    return texto;
-}
-
-/* =====================================================
-EXTRAER COMPROBANTES
-===================================================== */
-
-function extraerComprobantes(texto){
-
-    /*
-    Detecta:
-    1105-00007717
-    1105 00007717
-    110500007717
-    */
-
-    const regex =
-    /(1101|1104|0104|3008|1105)[\s\-]*0*(\d{5,8})/g;
-
-    let match;
-
-    const set = new Set();
-
-    while((match=regex.exec(texto))!==null){
-
-        const tipo = match[1];
-
-        let numero = match[2];
-
-        numero = numero.padStart(8,"0");
-
-        const comprobante =
-        tipo + "-" + numero;
-
-        set.add(comprobante);
-    }
-
-    return set;
-}
-
-/* =====================================================
-COMPARAR
-===================================================== */
-
-function compararSets(set1,set2){
-
-    let faltanEn2=[];
-    let faltanEn1=[];
-
-    set1.forEach(valor=>{
-
-        if(!set2.has(valor)){
-
-            faltanEn2.push(valor);
-        }
-    });
-
-    set2.forEach(valor=>{
-
-        if(!set1.has(valor)){
-
-            faltanEn1.push(valor);
-        }
-    });
-
-    return {
-        faltanEn1,
-        faltanEn2
-    };
-}
-
-/* =====================================================
-FUNCION PRINCIPAL
-===================================================== */
-
-async function comparar(){
-
-    const file1 =
-    document.getElementById("file1").files[0];
-
-    const file2 =
-    document.getElementById("file2").files[0];
-
-    const resultadoDiv =
-    document.getElementById("resultado");
-
-    if(!file1 || !file2){
-
-        alert("Debes subir ambos archivos");
-
-        return;
-    }
-
-    resultadoDiv.innerHTML=
-    `
-    <p class="loading">
-    ⏳ Procesando archivos...
-    </p>
-    `;
-
-    try{
-
-        contenidoArchivo1 =
-        await leerArchivo(file1);
-
-        contenidoArchivo2 =
-        await leerArchivo(file2);
-
-        const set1 <!DOCTYPE html>
-<html lang="es">
-<head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Comparador de Comprobantes</title>
-
-<!-- PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-
-<!-- Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<style>
-
-body{
-    font-family:Arial;
-    background:#f4f6f9;
-    padding:20px;
-}
-
-.container{
-    max-width:1000px;
-    margin:auto;
-    background:white;
-    padding:25px;
-    border-radius:10px;
-    box-shadow:0 0 15px rgba(0,0,0,0.1);
-}
-
-h1{
-    text-align:center;
-    margin-bottom:25px;
-}
-
-input,button{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-    font-size:15px;
-}
-
-button{
-    background:#007bff;
-    color:white;
-    border:none;
-    border-radius:5px;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#0056b3;
-}
-
-.result{
-    margin-top:20px;
-    background:#eef2f7;
-    padding:15px;
-    border-radius:8px;
-    white-space:pre-wrap;
-}
-
-.ok{
-    color:green;
-    font-weight:bold;
-    font-size:18px;
-}
-
-.diff{
-    color:red;
-    font-weight:bold;
-}
-
-.loading{
-    color:#0d6efd;
-    font-weight:bold;
-}
-
-.info{
-    background:#fff3cd;
-    padding:10px;
-    border-radius:6px;
-    margin-top:15px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-<h1>📄 Comparador de Comprobantes</h1>
-
-<label>Archivo 1</label>
-<input type="file" id="file1">
-
-<label>Archivo 2</label>
-<input type="file" id="file2">
-
-<button onclick="comparar()">
-Comparar Archivos
-</button>
-
-<button onclick="reiniciar()">
-Reiniciar
-</button>
-
-<div class="info">
-
-✅ Soporta:
-<br><br>
-
-• PDF con texto  
-• Excel (.xls / .xlsx)  
-• CSV / TXT  
-
-<br><br>
-
-⚠ No utiliza OCR para evitar falsos faltantes.
-
-</div>
-
-<div class="result" id="resultado"></div>
-
-</div>
-
-<script>
-
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
-/* =====================================================
-LECTURA GENERAL
-===================================================== */
-
-async function leerArchivo(file){
-
-    const extension =
-    file.name.split('.').pop().toLowerCase();
-
-    // PDF
-    if(extension==="pdf"){
-
-        return await leerPDF(file);
-    }
-
-    // EXCEL
-    if(
-        extension==="xlsx" ||
-        extension==="xls"
-    ){
-
-        return await leerExcel(file);
-    }
-
-    // TXT / CSV
-    if(
-        extension==="csv" ||
-        extension==="txt"
-    ){
-
-        return await leerTexto(file);
-    }
-
-    alert(
-        "Formato no soportado.\n\n" +
-        "Solo PDF, Excel, CSV o TXT."
-    );
-
-    return "";
-}
-
-/* =====================================================
-TXT / CSV
 ===================================================== */
 
 async function leerTexto(file){
@@ -639,13 +278,59 @@ async function leerPDF(file){
 }
 
 /* =====================================================
+IMAGENES OCR
+===================================================== */
+
+async function leerImagen(file){
+
+    document.getElementById("resultado").innerHTML =
+    `
+    <p class="loading">
+    🧠 Analizando imagen...
+    </p>
+    `;
+
+    const resultado =
+    await Tesseract.recognize(
+        file,
+        'eng',
+        {
+            logger:m=>{
+
+                if(m.status==="recognizing text"){
+
+                    document.getElementById("resultado").innerHTML =
+                    `
+                    <p class="loading">
+                    OCR:
+                    ${parseInt(m.progress*100)}%
+                    </p>
+                    `;
+                }
+            }
+        }
+    );
+
+    return resultado.data.text;
+}
+
+/* =====================================================
 EXTRAER COMPROBANTES
 ===================================================== */
 
 function extraerComprobantes(texto){
 
+    // NORMALIZA TEXTO
+    texto = texto.toUpperCase();
+
+    // REEMPLAZOS OCR
+    texto = texto
+    .replace(/O/g,"0")
+    .replace(/I/g,"1")
+    .replace(/L/g,"1");
+
     /*
-    Detecta formatos:
+    SOPORTA:
 
     1105-00007717
     1105 00007717
@@ -653,7 +338,7 @@ function extraerComprobantes(texto){
     */
 
     const regex =
-    /(1101|1104|0104|3008|1105)[\s\-\/]*(\d{5,12})/g;
+    /(1101|1104|0104|3008|1105)\D{0,3}(\d{5,12})/g;
 
     let match;
 
@@ -668,8 +353,11 @@ function extraerComprobantes(texto){
         // SOLO NUMEROS
         numero = numero.replace(/\D/g,'');
 
-        // ELIMINA CEROS INICIALES
-        numero = parseInt(numero,10).toString();
+        // ELIMINA CEROS A LA IZQUIERDA
+        numero = String(parseInt(numero,10));
+
+        // EVITA NaN
+        if(numero==="NaN") continue;
 
         const codigo =
         tipo + "-" + numero;
@@ -748,21 +436,20 @@ async function comparar(){
         const texto2 =
         await leerArchivo(file2);
 
+        console.log("ARCHIVO 1");
+        console.log(texto1);
+
+        console.log("ARCHIVO 2");
+        console.log(texto2);
+
         const comprobantes1 =
         extraerComprobantes(texto1);
 
         const comprobantes2 =
         extraerComprobantes(texto2);
 
-        console.log(
-            "Archivo 1:",
-            [...comprobantes1]
-        );
-
-        console.log(
-            "Archivo 2:",
-            [...comprobantes2]
-        );
+        console.log(comprobantes1);
+        console.log(comprobantes2);
 
         const diferencias =
         compararSets(
