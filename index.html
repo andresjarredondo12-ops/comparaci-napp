@@ -497,8 +497,499 @@ async function comparar(){
         let html="";
 
         html+=`
-        <p><b>Total Archivo 1:</b> ${set1.size}</p>
-        <p><b>Total Archivo 2:</b> ${set2.size}</p>
+        <p><b>Total Archivo 1:</b> ${set1.size}</p<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Comparador Inteligente de Remitos</title>
+
+<!-- PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<!-- Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<style>
+
+body{
+    font-family:Arial;
+    background:#f4f6f9;
+    padding:20px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+    background:white;
+    padding:25px;
+    border-radius:10px;
+    box-shadow:0 0 15px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+}
+
+input,button{
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+}
+
+button{
+    background:#007bff;
+    color:white;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#0056b3;
+}
+
+.result{
+    margin-top:20px;
+    background:#eef2f7;
+    padding:15px;
+    border-radius:8px;
+    white-space:pre-wrap;
+}
+
+.ok{
+    color:green;
+    font-weight:bold;
+    font-size:18px;
+}
+
+.diff{
+    color:red;
+    font-weight:bold;
+}
+
+.loading{
+    color:#0d6efd;
+    font-weight:bold;
+}
+
+.preview{
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+    flex-wrap:wrap;
+}
+
+.preview img{
+    width:150px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+.info{
+    background:#fff3cd;
+    padding:12px;
+    margin-top:15px;
+    border-radius:6px;
+}
+
+pre{
+    background:white;
+    padding:10px;
+    border-radius:5px;
+    overflow:auto;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>📄 Comparador Inteligente de Remitos</h1>
+
+<label>Archivo 1</label>
+<input type="file" id="file1">
+
+<label>Archivo 2</label>
+<input type="file" id="file2">
+
+<button onclick="comparar()">
+Comparar
+</button>
+
+<button onclick="reiniciar()">
+Reiniciar
+</button>
+
+<div class="info">
+
+✅ Soporta:
+
+<br><br>
+
+• PDF  
+• Excel  
+• CSV / TXT  
+• Imágenes  
+• Capturas  
+• Tablas escaneadas  
+• OCR inteligente  
+
+<br><br>
+
+✅ Detecta:
+
+1101 / 1104 / 0104 / 3008 / 1105
+
+</div>
+
+<div class="preview" id="preview"></div>
+
+<div class="result" id="resultado"></div>
+
+</div>
+
+<script>
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+let contenido1="";
+let contenido2="";
+
+/* =========================================================
+LECTURA GENERAL
+========================================================= */
+
+async function leerArchivo(file){
+
+    const ext=file.name.split('.').pop().toLowerCase();
+
+    if(ext==="pdf"){
+        return await leerPDF(file);
+    }
+
+    if(ext==="xlsx" || ext==="xls"){
+        return await leerExcel(file);
+    }
+
+    if(ext==="csv" || ext==="txt"){
+        return await leerTexto(file);
+    }
+
+    if([
+        "jpg",
+        "jpeg",
+        "png",
+        "bmp",
+        "webp"
+    ].includes(ext)){
+
+        return await leerImagenOCR(file);
+    }
+
+    alert("Formato no soportado");
+
+    return "";
+}
+
+/* =========================================================
+TXT
+========================================================= */
+
+async function leerTexto(file){
+
+    return new Promise(resolve=>{
+
+        const reader=new FileReader();
+
+        reader.onload=e=>resolve(e.target.result);
+
+        reader.readAsText(file);
+
+    });
+}
+
+/* =========================================================
+EXCEL
+========================================================= */
+
+async function leerExcel(file){
+
+    return new Promise(resolve=>{
+
+        const reader=new FileReader();
+
+        reader.onload=function(e){
+
+            const data=new Uint8Array(e.target.result);
+
+            const workbook=XLSX.read(data,{type:'array'});
+
+            let texto="";
+
+            workbook.SheetNames.forEach(name=>{
+
+                texto+=XLSX.utils.sheet_to_csv(
+                    workbook.Sheets[name]
+                );
+
+                texto+="\n";
+            });
+
+            resolve(texto);
+        }
+
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/* =========================================================
+PDF
+========================================================= */
+
+async function leerPDF(file){
+
+    const pdfData=await file.arrayBuffer();
+
+    const pdf=await pdfjsLib.getDocument({
+        data:pdfData
+    }).promise;
+
+    let texto="";
+
+    for(let i=1;i<=pdf.numPages;i++){
+
+        const page=await pdf.getPage(i);
+
+        const content=await page.getTextContent();
+
+        const strings=content.items.map(
+            item=>item.str
+        );
+
+        texto+=strings.join(" ")+"\n";
+    }
+
+    return texto;
+}
+
+/* =========================================================
+OCR IMAGEN
+========================================================= */
+
+async function leerImagenOCR(file){
+
+    mostrarPreview(file);
+
+    document.getElementById("resultado").innerHTML=
+    `<p class="loading">🧠 Analizando imagen...</p>`;
+
+    const resultado=await Tesseract.recognize(
+        file,
+        'spa+eng',
+        {
+            logger:m=>{
+
+                if(m.status==="recognizing text"){
+
+                    document.getElementById("resultado").innerHTML=
+                    `
+                    <p class="loading">
+                    OCR:
+                    ${parseInt(m.progress*100)}%
+                    </p>
+                    `;
+                }
+            }
+        }
+    );
+
+    return limpiarOCR(resultado.data.text);
+}
+
+/* =========================================================
+MEJORA OCR
+========================================================= */
+
+function limpiarOCR(texto){
+
+    return texto
+
+    .replace(/O/g,"0")
+    .replace(/o/g,"0")
+    .replace(/I/g,"1")
+    .replace(/l/g,"1")
+    .replace(/\|/g,"1")
+
+    .replace(/[^\w\s\-\/]/g," ")
+
+    .replace(/\s+/g," ")
+
+    .trim();
+}
+
+/* =========================================================
+PREVIEW
+========================================================= */
+
+function mostrarPreview(file){
+
+    const preview=document.getElementById("preview");
+
+    const reader=new FileReader();
+
+    reader.onload=function(e){
+
+        const img=document.createElement("img");
+
+        img.src=e.target.result;
+
+        preview.appendChild(img);
+    }
+
+    reader.readAsDataURL(file);
+}
+
+/* =========================================================
+NORMALIZAR COMPROBANTES
+========================================================= */
+
+function normalizarNumero(numero){
+
+    numero=numero.replace(/\D/g,'');
+
+    return numero.padStart(8,'0');
+}
+
+/* =========================================================
+EXTRAER REMITOS
+========================================================= */
+
+function extraerRemitos(texto){
+
+    const regex=
+    /(1101|1104|0104|3008|1105)[\s\-\/]*0*(\d{4,10})/gi;
+
+    let match;
+
+    let mapa=new Map();
+
+    while((match=regex.exec(texto))!==null){
+
+        let tipo=match[1];
+
+        let numero=normalizarNumero(match[2]);
+
+        let clave=tipo+"-"+numero;
+
+        mapa.set(clave,{
+            tipo,
+            numero,
+            completo:clave
+        });
+    }
+
+    return mapa;
+}
+
+/* =========================================================
+BUSCAR LINEAS
+========================================================= */
+
+function lineasPorRemito(texto,numero){
+
+    const lineas=texto.split(/\r?\n/);
+
+    const ultimos=numero.slice(-5);
+
+    const filtradas=lineas.filter(l=>{
+
+        return l.includes(ultimos);
+    });
+
+    return filtradas.length
+        ? filtradas.join("\n")
+        : "No encontrado";
+}
+
+/* =========================================================
+COMPARAR
+========================================================= */
+
+function compararMapas(map1,map2){
+
+    let faltanEn2=[];
+    let faltanEn1=[];
+
+    map1.forEach((valor,key)=>{
+
+        if(!map2.has(key)){
+
+            faltanEn2.push(valor);
+        }
+    });
+
+    map2.forEach((valor,key)=>{
+
+        if(!map1.has(key)){
+
+            faltanEn1.push(valor);
+        }
+    });
+
+    return {
+        faltanEn1,
+        faltanEn2
+    };
+}
+
+/* =========================================================
+PRINCIPAL
+========================================================= */
+
+async function comparar(){
+
+    const file1=document.getElementById("file1").files[0];
+    const file2=document.getElementById("file2").files[0];
+
+    const resultadoDiv=document.getElementById("resultado");
+
+    if(!file1 || !file2){
+
+        alert("Subí ambos archivos");
+
+        return;
+    }
+
+    resultadoDiv.innerHTML=
+    `<p class="loading">⏳ Procesando...</p>`;
+
+    try{
+
+        contenido1=await leerArchivo(file1);
+        contenido2=await leerArchivo(file2);
+
+        const remitos1=extraerRemitos(contenido1);
+        const remitos2=extraerRemitos(contenido2);
+
+        console.log(remitos1);
+        console.log(remitos2);
+
+        const resultado=
+        compararMapas(remitos1,remitos2);
+
+        let html="";
+
+        html+=`
+        <p><b>Total Archivo 1:</b> ${remitos1.size}</p>
+        <p><b>Total Archivo 2:</b> ${remitos2.size}</p>
         `;
 
         if(
@@ -516,51 +1007,53 @@ async function comparar(){
 
             html+=`
             <p class="diff">
-            ⚠ Se encontraron diferencias
+            ⚠ Se detectaron diferencias
             </p>
             `;
 
-            // FALTAN EN 2
-            if(resultado.faltanEn2.length>0){
+            if(resultado.faltanEn2.length){
 
                 html+=`
                 <p class="diff">
-                Faltan en Archivo 2:
+                Faltan en Archivo 2
                 </p>
                 `;
 
                 resultado.faltanEn2.forEach(r=>{
 
                     html+=`
-                    <p class="diff">${r}</p>
+                    <p class="diff">
+                    ${r.completo}
+                    </p>
                     `;
 
                     html+=`
                     <pre>
-${lineasPorRemito(contenidoArchivo1,r)}
+${lineasPorRemito(contenido1,r.numero)}
                     </pre>
                     `;
                 });
             }
 
-            // FALTAN EN 1
-            if(resultado.faltanEn1.length>0){
+            if(resultado.faltanEn1.length){
 
                 html+=`
                 <p class="diff">
-                Faltan en Archivo 1:
+                Faltan en Archivo 1
                 </p>
                 `;
 
                 resultado.faltanEn1.forEach(r=>{
 
                     html+=`
-                    <p class="diff">${r}</p>
+                    <p class="diff">
+                    ${r.completo}
+                    </p>
                     `;
 
                     html+=`
                     <pre>
-${lineasPorRemito(contenidoArchivo2,r)}
+${lineasPorRemito(contenido2,r.numero)}
                     </pre>
                     `;
                 });
@@ -593,8 +1086,8 @@ function reiniciar(){
     document.getElementById("resultado").innerHTML="";
     document.getElementById("preview").innerHTML="";
 
-    contenidoArchivo1="";
-    contenidoArchivo2="";
+    contenido1="";
+    contenido2="";
 }
 
 </script>
