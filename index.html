@@ -24,7 +24,7 @@
 body{
     margin:0;
     padding:20px;
-    background:#f3f5f9;
+    background:#f2f5f9;
     font-family:Arial, sans-serif;
 }
 
@@ -85,6 +85,10 @@ button{
 .primary{
     background:#1565c0;
     color:#fff;
+}
+
+.primary:hover{
+    background:#0d47a1;
 }
 
 .secondary{
@@ -160,6 +164,16 @@ button{
     overflow:auto;
     font-family:Consolas, monospace;
     margin-bottom:20px;
+}
+
+.debug{
+    background:#fff8e1;
+    border:1px solid #ffcc80;
+    padding:10px;
+    border-radius:8px;
+    margin-top:20px;
+    font-family:Consolas, monospace;
+    font-size:13px;
 }
 
 @media(max-width:768px){
@@ -412,13 +426,13 @@ async function leerImagen(file){
 }
 
 /* =========================================================
-   NORMALIZAR COMPROBANTE
+   NORMALIZAR
 ========================================================= */
 
-function normalizarComprobante(tipo,numero){
+function normalizar(tipo,numero){
 
     /*
-        00020631 -> 20631
+        0007844 => 7844
     */
 
     numero = numero.replace(/^0+/,'');
@@ -436,6 +450,10 @@ function extraerComprobantes(texto){
         return new Set();
     }
 
+    /*
+        LIMPIEZA
+    */
+
     texto = texto
         .toUpperCase()
         .replace(/\r/g,' ')
@@ -443,18 +461,23 @@ function extraerComprobantes(texto){
         .replace(/\s+/g,' ');
 
     /*
-        ESTE REGEX AHORA:
+        REGEX FINAL CORREGIDO
 
-        ✔ detecta:
-            3008-20631
-            3008-00020631
-            300800020631
+        DETECTA:
 
-        ✔ detecta:
-            1104-43826
-            1104-00043826
+        1105-7844
+        1105 7844
+        1105/7844
+        1105-0007844
+        11050007844
 
-        ✔ evita errores OCR
+        3008-20631
+        3008-00020631
+
+        1104-43826
+        1104-00043826
+
+        ETC
     */
 
     const regex =
@@ -471,30 +494,39 @@ function extraerComprobantes(texto){
         const numero = match[2];
 
         /*
-            VALIDACION
+            VALIDACION REAL
         */
 
         if(numero.length < 4){
             continue;
         }
 
-        /*
-            NORMALIZA:
-            3008-00020631
-            ==
-            3008-20631
-        */
-
         const comprobante =
-            normalizarComprobante(
-                tipo,
-                numero
-            );
+            normalizar(tipo,numero);
 
         encontrados.add(comprobante);
     }
 
     return encontrados;
+}
+
+/* =========================================================
+   ORDENAR
+========================================================= */
+
+function ordenarComprobantes(lista){
+
+    return lista.sort((a,b)=>{
+
+        const [ta,na] = a.split('-');
+        const [tb,nb] = b.split('-');
+
+        if(ta !== tb){
+            return ta.localeCompare(tb);
+        }
+
+        return Number(na) - Number(nb);
+    });
 }
 
 /* =========================================================
@@ -544,16 +576,20 @@ async function comparar(){
             extraerComprobantes(texto2);
 
         /*
-            DIFERENCIAS
+            DIFERENCIAS REALES
         */
 
         const faltanEn2 =
-            [...set1]
-            .filter(x => !set2.has(x));
+            ordenarComprobantes(
+                [...set1]
+                .filter(x => !set2.has(x))
+            );
 
         const faltanEn1 =
-            [...set2]
-            .filter(x => !set1.has(x));
+            ordenarComprobantes(
+                [...set2]
+                .filter(x => !set1.has(x))
+            );
 
         let html = '';
 
@@ -583,6 +619,10 @@ async function comparar(){
             </div>
         `;
 
+        /*
+            RESULTADO
+        */
+
         if(
             faltanEn1.length === 0 &&
             faltanEn2.length === 0
@@ -602,11 +642,21 @@ async function comparar(){
                 </div>
             `;
 
-            if(faltanEn2.length){
+            /*
+                EN TU EJEMPLO:
+                ACA DEBE APARECER:
+
+                1105-7844
+
+                porque realmente falta
+                en archivo 2
+            */
+
+            if(faltanEn2.length > 0){
 
                 html += `
                     <h3>
-                        Faltan en Archivo 2
+                        📌 Faltan en Archivo 2
                     </h3>
 
                     <div class="list">
@@ -615,11 +665,11 @@ async function comparar(){
                 `;
             }
 
-            if(faltanEn1.length){
+            if(faltanEn1.length > 0){
 
                 html += `
                     <h3>
-                        Faltan en Archivo 1
+                        📌 Faltan en Archivo 1
                     </h3>
 
                     <div class="list">
@@ -628,6 +678,28 @@ async function comparar(){
                 `;
             }
         }
+
+        /*
+            DEBUG OPCIONAL
+        */
+
+        html += `
+            <div class="debug">
+
+                <b>Comprobantes detectados Archivo 1:</b>
+                <br><br>
+
+                ${ordenarComprobantes([...set1]).join('<br>')}
+
+                <hr>
+
+                <b>Comprobantes detectados Archivo 2:</b>
+                <br><br>
+
+                ${ordenarComprobantes([...set2]).join('<br>')}
+
+            </div>
+        `;
 
         resultado.innerHTML = html;
 
