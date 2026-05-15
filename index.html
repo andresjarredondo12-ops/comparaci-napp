@@ -1,196 +1,532 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comparador de Comprobantes Pro</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-    <!-- Librerías Externas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<title>Comparador de Comprobantes PRO</title>
 
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: #1a73e8; }
-        .upload-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .file-box { border: 2px dashed #ccc; padding: 15px; border-radius: 8px; text-align: center; }
-        button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.3s; }
-        .btn-primary { background: #1a73e8; color: white; border: none; }
-        .btn-primary:hover { background: #1557b0; }
-        .btn-secondary { background: #6c757d; color: white; border: none; margin-top: 5px; }
-        .result { margin-top: 25px; padding: 20px; border-radius: 8px; background: #fafafa; border: 1px solid #ddd; }
-        .ok { color: #28a745; border-left: 5px solid #28a745; padding-left: 10px; }
-        .diff { color: #dc3545; border-left: 5px solid #dc3545; padding-left: 10px; }
-        .loading { color: #1a73e8; font-style: italic; text-align: center; }
-        .summary-card { display: flex; justify-content: space-around; margin-bottom: 20px; background: #e8f0fe; padding: 15px; border-radius: 8px; }
-        .list-diff { max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid #eee; padding: 10px; }
-    </style>
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+<!-- XLSX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+    *{
+        box-sizing:border-box;
+    }
+
+    body{
+        margin:0;
+        padding:20px;
+        background:#f3f5f9;
+        font-family:Segoe UI, Arial, sans-serif;
+        color:#222;
+    }
+
+    .container{
+        max-width:1000px;
+        margin:auto;
+        background:#fff;
+        border-radius:14px;
+        padding:25px;
+        box-shadow:0 4px 20px rgba(0,0,0,.08);
+    }
+
+    h1{
+        text-align:center;
+        color:#1565c0;
+        margin-bottom:30px;
+    }
+
+    .upload-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:20px;
+        margin-bottom:20px;
+    }
+
+    .box{
+        border:2px dashed #c7c7c7;
+        border-radius:10px;
+        padding:20px;
+        background:#fafafa;
+    }
+
+    .box label{
+        display:block;
+        margin-bottom:10px;
+        font-weight:bold;
+    }
+
+    input[type=file]{
+        width:100%;
+    }
+
+    .buttons{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+    }
+
+    button{
+        border:none;
+        padding:14px;
+        border-radius:8px;
+        font-size:16px;
+        font-weight:bold;
+        cursor:pointer;
+        transition:.2s;
+    }
+
+    .btn-primary{
+        background:#1565c0;
+        color:#fff;
+    }
+
+    .btn-primary:hover{
+        background:#0d47a1;
+    }
+
+    .btn-secondary{
+        background:#6c757d;
+        color:#fff;
+    }
+
+    .btn-secondary:hover{
+        background:#555;
+    }
+
+    .result{
+        margin-top:25px;
+        padding:20px;
+        border-radius:10px;
+        border:1px solid #ddd;
+        background:#fff;
+        display:none;
+    }
+
+    .summary{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:10px;
+        margin-bottom:20px;
+    }
+
+    .card{
+        background:#eef4ff;
+        border-radius:10px;
+        padding:15px;
+        text-align:center;
+    }
+
+    .card h3{
+        margin:0;
+        color:#1565c0;
+        font-size:15px;
+    }
+
+    .card p{
+        margin:10px 0 0;
+        font-size:24px;
+        font-weight:bold;
+    }
+
+    .success{
+        background:#e8f5e9;
+        color:#2e7d32;
+        padding:15px;
+        border-radius:8px;
+        font-weight:bold;
+        margin-bottom:20px;
+    }
+
+    .error{
+        background:#ffebee;
+        color:#c62828;
+        padding:15px;
+        border-radius:8px;
+        font-weight:bold;
+        margin-bottom:20px;
+    }
+
+    .list{
+        max-height:300px;
+        overflow:auto;
+        background:#fafafa;
+        border:1px solid #ddd;
+        padding:10px;
+        border-radius:8px;
+        margin-top:10px;
+        font-family:Consolas, monospace;
+    }
+
+    .loading{
+        text-align:center;
+        color:#1565c0;
+        font-weight:bold;
+    }
+
+    @media(max-width:768px){
+        .upload-grid{
+            grid-template-columns:1fr;
+        }
+
+        .summary{
+            grid-template-columns:1fr 1fr;
+        }
+    }
+</style>
 </head>
+
 <body>
 
 <div class="container">
-    <h1>📄 Comparador de Comprobantes</h1>
-    
-    <div class="upload-section">
-        <div class="file-box">
-            <label><b>Archivo Origen (Base)</b></label>
-            <input type="file" id="file1" accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png">
+
+    <h1>📄 Comparador de Comprobantes PRO</h1>
+
+    <div class="upload-grid">
+
+        <div class="box">
+            <label>Archivo Base</label>
+            <input type="file" id="file1"
+                accept=".pdf,.xlsx,.xls,.csv,.txt">
         </div>
-        <div class="file-box">
-            <label><b>Archivo a Comparar</b></label>
-            <input type="file" id="file2" accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png">
+
+        <div class="box">
+            <label>Archivo a Comparar</label>
+            <input type="file" id="file2"
+                accept=".pdf,.xlsx,.xls,.csv,.txt">
         </div>
+
     </div>
 
-    <button class="btn-primary" onclick="comparar()">🔍 Iniciar Comparación</button>
-    <button class="btn-secondary" onclick="reiniciar()">Limpiar</button>
+    <div class="buttons">
+        <button class="btn-primary" onclick="comparar()">
+            🔍 Comparar
+        </button>
 
-    <div id="resultado" class="result" style="display:none;"></div>
+        <button class="btn-secondary" onclick="reiniciar()">
+            🧹 Limpiar
+        </button>
+    </div>
+
+    <div id="resultado" class="result"></div>
+
 </div>
 
 <script>
-// Configuración de PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-/**
- * LÓGICA DE EXTRACCIÓN
- */
-async function leerArchivo(file) {
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+/* =========================================================
+   LECTURA DE ARCHIVOS
+========================================================= */
+
+async function leerArchivo(file){
+
     const ext = file.name.split('.').pop().toLowerCase();
-    
-    if (ext === "pdf") return await leerPDF(file);
-    if (["xlsx", "xls"].includes(ext)) return await leerExcel(file);
-    if (["csv", "txt"].includes(ext)) return await leerTexto(file);
-    if (["jpg", "jpeg", "png", "webp"].includes(ext)) return await leerImagen(file);
-    
-    throw new Error(`Formato .${ext} no soportado.`);
-}
 
-async function leerTexto(file) {
-    return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.readAsText(file);
-    });
-}
+    switch(ext){
 
-async function leerExcel(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            let texto = "";
-            workbook.SheetNames.forEach(name => {
-                texto += XLSX.utils.sheet_to_txt(workbook.Sheets[name]) + "\n";
-            });
-            resolve(texto);
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-    });
-}
+        case 'pdf':
+            return await leerPDF(file);
 
-async function leerPDF(file) {
-    const pdfData = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
-    let texto = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        // El join con espacio es vital para evitar pegar números
-        texto += content.items.map(s => s.str).join(" ") + "\n";
+        case 'xlsx':
+        case 'xls':
+            return await leerExcel(file);
+
+        case 'csv':
+        case 'txt':
+            return await leerTexto(file);
+
+        default:
+            throw new Error(`Formato no soportado: .${ext}`);
     }
+}
+
+/* =========================================================
+   TXT / CSV
+========================================================= */
+
+async function leerTexto(file){
+
+    return new Promise((resolve,reject)=>{
+
+        const reader = new FileReader();
+
+        reader.onload = e => resolve(e.target.result);
+
+        reader.onerror = reject;
+
+        reader.readAsText(file);
+
+    });
+}
+
+/* =========================================================
+   EXCEL
+========================================================= */
+
+async function leerExcel(file){
+
+    return new Promise((resolve,reject)=>{
+
+        const reader = new FileReader();
+
+        reader.onload = e => {
+
+            try{
+
+                const data = new Uint8Array(e.target.result);
+
+                const workbook = XLSX.read(data,{
+                    type:'array'
+                });
+
+                let texto = '';
+
+                workbook.SheetNames.forEach(sheetName=>{
+
+                    const sheet = workbook.Sheets[sheetName];
+
+                    texto += XLSX.utils.sheet_to_csv(sheet);
+
+                    texto += '\n';
+
+                });
+
+                resolve(texto);
+
+            }catch(err){
+                reject(err);
+            }
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsArrayBuffer(file);
+
+    });
+}
+
+/* =========================================================
+   PDF RAPIDO
+========================================================= */
+
+async function leerPDF(file){
+
+    const data = await file.arrayBuffer();
+
+    const pdf = await pdfjsLib.getDocument({
+        data:data
+    }).promise;
+
+    let texto = '';
+
+    for(let i=1;i<=pdf.numPages;i++){
+
+        const page = await pdf.getPage(i);
+
+        const content = await page.getTextContent();
+
+        const strings = content.items.map(item => item.str);
+
+        texto += strings.join(' ') + '\n';
+    }
+
     return texto;
 }
 
-async function leerImagen(file) {
-    const worker = await Tesseract.createWorker('spa'); // Usamos español
-    const ret = await worker.recognize(file);
-    await worker.terminate();
-    return ret.data.text;
-}
+/* =========================================================
+   EXTRACCION DE COMPROBANTES
+========================================================= */
 
-/**
- * NORMALIZACIÓN Y COMPARACIÓN
- */
-function extraerComprobantes(texto) {
-    // Limpieza de caracteres comunes de error en OCR
-    const limpio = texto.toUpperCase()
-        .replace(/O/g, "0")
-        .replace(/I|L/g, "1");
+function extraerComprobantes(texto){
 
-    // Regex mejorada: busca prefijos específicos y captura el número
-    // Soporta: 1105-0001, 1105 0001, 11050001
-    const regex = /(1101|1104|0104|3008|1105)[ \-_]?(\d{4,12})/g;
-    const encontrados = new Set();
-    
+    texto = texto.toUpperCase();
+
+    /*
+        Detecta formatos:
+
+        1105-00012345
+        1105 00012345
+        110500012345
+        1105/00012345
+
+    */
+
+    const regex =
+    /(1101|1104|0104|3008|1105)[\s\-\/]?0*(\d{3,12})/g;
+
+    const resultados = new Set();
+
     let match;
-    while ((match = regex.exec(limpio)) !== null) {
+
+    while((match = regex.exec(texto)) !== null){
+
         const tipo = match[1];
-        // Quitamos ceros a la izquierda del número para comparar "000123" como "123"
-        const num = parseInt(match[2], 10).toString();
-        encontrados.add(`${tipo}-${num}`);
+
+        const numero = parseInt(match[2],10);
+
+        if(!isNaN(numero)){
+
+            resultados.add(`${tipo}-${numero}`);
+        }
     }
-    return encontrados;
+
+    return resultados;
 }
 
-async function comparar() {
-    const f1 = document.getElementById("file1").files[0];
-    const f2 = document.getElementById("file2").files[0];
-    const resDiv = document.getElementById("resultado");
+/* =========================================================
+   COMPARACION
+========================================================= */
 
-    if (!f1 || !f2) return alert("Por favor, selecciona ambos archivos.");
+async function comparar(){
 
-    resDiv.style.display = "block";
-    resDiv.innerHTML = '<p class="loading">⚙️ Procesando y analizando datos (esto puede tardar con OCR)...</p>';
+    const file1 = document.getElementById('file1').files[0];
+    const file2 = document.getElementById('file2').files[0];
 
-    try {
-        const [t1, t2] = await Promise.all([leerArchivo(f1), leerArchivo(f2)]);
-        const set1 = extraerComprobantes(t1);
-        const set2 = extraerComprobantes(t2);
+    const resultado = document.getElementById('resultado');
 
-        const faltanEn2 = [...set1].filter(x => !set2.has(x));
-        const faltanEn1 = [...set2].filter(x => !set1.has(x));
+    if(!file1 || !file2){
 
-        let html = `
-            <div class="summary-card">
-                <div><b>Archivo 1:</b> ${set1.size} items</div>
-                <div><b>Archivo 2:</b> ${set2.size} items</div>
+        alert('Selecciona ambos archivos.');
+
+        return;
+    }
+
+    resultado.style.display = 'block';
+
+    resultado.innerHTML = `
+        <div class="loading">
+            ⚙️ Procesando archivos...
+        </div>
+    `;
+
+    try{
+
+        /*
+            Procesamiento paralelo
+        */
+
+        const [texto1, texto2] = await Promise.all([
+            leerArchivo(file1),
+            leerArchivo(file2)
+        ]);
+
+        const set1 = extraerComprobantes(texto1);
+        const set2 = extraerComprobantes(texto2);
+
+        const faltanEn2 = [...set1]
+            .filter(x => !set2.has(x));
+
+        const faltanEn1 = [...set2]
+            .filter(x => !set1.has(x));
+
+        let html = '';
+
+        html += `
+            <div class="summary">
+
+                <div class="card">
+                    <h3>Archivo 1</h3>
+                    <p>${set1.size}</p>
+                </div>
+
+                <div class="card">
+                    <h3>Archivo 2</h3>
+                    <p>${set2.size}</p>
+                </div>
+
+                <div class="card">
+                    <h3>Faltan en 1</h3>
+                    <p>${faltanEn1.length}</p>
+                </div>
+
+                <div class="card">
+                    <h3>Faltan en 2</h3>
+                    <p>${faltanEn2.length}</p>
+                </div>
+
             </div>
         `;
 
-        if (faltanEn1.length === 0 && faltanEn2.length === 0) {
-            html += `<div class="ok">✅ ¡Coincidencia total! Todos los comprobantes están en ambos archivos.</div>`;
-        } else {
-            html += `<div class="diff">⚠️ Se detectaron discrepancias:</div><br>`;
-            
-            if (faltanEn2.length > 0) {
-                html += `<b>Faltan en Archivo 2 (${faltanEn2.length}):</b>
-                         <div class="list-diff">${faltanEn2.join('<br>')}</div><br>`;
+        if(
+            faltanEn1.length === 0 &&
+            faltanEn2.length === 0
+        ){
+
+            html += `
+                <div class="success">
+                    ✅ Coincidencia total.
+                    Ambos archivos contienen los mismos comprobantes.
+                </div>
+            `;
+
+        }else{
+
+            html += `
+                <div class="error">
+                    ⚠️ Se encontraron diferencias.
+                </div>
+            `;
+
+            if(faltanEn2.length){
+
+                html += `
+                    <h3>Comprobantes faltantes en Archivo 2</h3>
+
+                    <div class="list">
+                        ${faltanEn2.join('<br>')}
+                    </div>
+                `;
             }
-            if (faltanEn1.length > 0) {
-                html += `<b>Faltan en Archivo 1 (${faltanEn1.length}):</b>
-                         <div class="list-diff">${faltanEn1.join('<br>')}</div>`;
+
+            if(faltanEn1.length){
+
+                html += `
+                    <h3>Comprobantes faltantes en Archivo 1</h3>
+
+                    <div class="list">
+                        ${faltanEn1.join('<br>')}
+                    </div>
+                `;
             }
         }
-        resDiv.innerHTML = html;
 
-    } catch (err) {
-        resDiv.innerHTML = `<p class="diff">❌ Error: ${err.message}</p>`;
+        resultado.innerHTML = html;
+
+    }catch(err){
+
         console.error(err);
+
+        resultado.innerHTML = `
+            <div class="error">
+                ❌ Error: ${err.message}
+            </div>
+        `;
     }
 }
 
-function reiniciar() {
-    document.getElementById("file1").value = "";
-    document.getElementById("file2").value = "";
-    const res = document.getElementById("resultado");
-    res.innerHTML = "";
-    res.style.display = "none";
+/* =========================================================
+   LIMPIAR
+========================================================= */
+
+function reiniciar(){
+
+    document.getElementById('file1').value = '';
+    document.getElementById('file2').value = '';
+
+    const resultado = document.getElementById('resultado');
+
+    resultado.innerHTML = '';
+
+    resultado.style.display = 'none';
 }
+
 </script>
 
 </body>
