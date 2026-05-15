@@ -12,6 +12,9 @@
 <!-- XLSX -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+<!-- OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <style>
 
 *{
@@ -26,7 +29,7 @@ body{
 }
 
 .container{
-    max-width:1000px;
+    max-width:1100px;
     margin:auto;
     background:#fff;
     padding:25px;
@@ -48,7 +51,7 @@ h1{
 }
 
 .box{
-    border:2px dashed #cfcfcf;
+    border:2px dashed #ccc;
     border-radius:10px;
     padding:20px;
     background:#fafafa;
@@ -107,6 +110,7 @@ button{
     text-align:center;
     color:#1565c0;
     font-weight:bold;
+    padding:20px;
 }
 
 .success{
@@ -136,8 +140,8 @@ button{
 
 .card{
     background:#eef4ff;
-    padding:15px;
     border-radius:10px;
+    padding:15px;
     text-align:center;
 }
 
@@ -188,12 +192,22 @@ button{
 
         <div class="box">
             <label>Archivo Base</label>
-            <input type="file" id="file1">
+
+            <input
+                type="file"
+                id="file1"
+                accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp"
+            >
         </div>
 
         <div class="box">
             <label>Archivo a Comparar</label>
-            <input type="file" id="file2">
+
+            <input
+                type="file"
+                id="file2"
+                accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp"
+            >
         </div>
 
     </div>
@@ -217,7 +231,7 @@ button{
 <script>
 
 /* ======================================================
-   CONFIG PDF
+   PDF CONFIG
 ====================================================== */
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -232,12 +246,6 @@ async function leerArchivo(file){
     if(!file){
         throw new Error("Archivo inválido");
     }
-
-    /*
-        Solución definitiva:
-        algunos archivos vienen sin extensión
-        o con MIME incorrecto.
-    */
 
     const nombre = file.name.toLowerCase();
 
@@ -259,22 +267,22 @@ async function leerArchivo(file){
         return await leerTexto(file);
     }
 
-    /*
-        Intento automático:
-        si falla todo, leer como texto.
-    */
-
-    try{
-        return await leerTexto(file);
-    }catch(e){
-        throw new Error(
-            "Formato no soportado o archivo corrupto."
-        );
+    if(
+        nombre.endsWith('.jpg') ||
+        nombre.endsWith('.jpeg') ||
+        nombre.endsWith('.png') ||
+        nombre.endsWith('.webp')
+    ){
+        return await leerImagen(file);
     }
+
+    throw new Error(
+        "Formato no soportado"
+    );
 }
 
 /* ======================================================
-   TXT / CSV
+   LEER TXT
 ====================================================== */
 
 async function leerTexto(file){
@@ -288,7 +296,9 @@ async function leerTexto(file){
         };
 
         reader.onerror = () => {
-            reject(new Error("No se pudo leer el texto"));
+            reject(
+                new Error("No se pudo leer TXT")
+            );
         };
 
         reader.readAsText(file);
@@ -296,7 +306,7 @@ async function leerTexto(file){
 }
 
 /* ======================================================
-   EXCEL
+   LEER EXCEL
 ====================================================== */
 
 async function leerExcel(file){
@@ -309,7 +319,8 @@ async function leerExcel(file){
 
             try{
 
-                const data = new Uint8Array(e.target.result);
+                const data =
+                    new Uint8Array(e.target.result);
 
                 const workbook = XLSX.read(data,{
                     type:'array'
@@ -319,12 +330,12 @@ async function leerExcel(file){
 
                 workbook.SheetNames.forEach(sheetName=>{
 
-                    const sheet = workbook.Sheets[sheetName];
+                    const sheet =
+                        workbook.Sheets[sheetName];
 
                     texto += XLSX.utils.sheet_to_csv(sheet);
 
                     texto += '\n';
-
                 });
 
                 resolve(texto);
@@ -332,14 +343,18 @@ async function leerExcel(file){
             }catch(err){
 
                 reject(
-                    new Error("Error leyendo Excel")
+                    new Error(
+                        "Error leyendo Excel"
+                    )
                 );
             }
         };
 
         reader.onerror = () => {
             reject(
-                new Error("No se pudo abrir Excel")
+                new Error(
+                    "No se pudo abrir Excel"
+                )
             );
         };
 
@@ -348,7 +363,7 @@ async function leerExcel(file){
 }
 
 /* ======================================================
-   PDF
+   LEER PDF
 ====================================================== */
 
 async function leerPDF(file){
@@ -367,11 +382,13 @@ async function leerPDF(file){
 
             const page = await pdf.getPage(i);
 
-            const content = await page.getTextContent();
+            const content =
+                await page.getTextContent();
 
-            const strings = content.items.map(
-                item => item.str
-            );
+            const strings =
+                content.items.map(
+                    item => item.str
+                );
 
             texto += strings.join(' ') + '\n';
         }
@@ -382,6 +399,32 @@ async function leerPDF(file){
 
         throw new Error(
             "No se pudo leer el PDF"
+        );
+    }
+}
+
+/* ======================================================
+   LEER IMAGEN CON OCR
+====================================================== */
+
+async function leerImagen(file){
+
+    try{
+
+        const worker =
+            await Tesseract.createWorker('spa');
+
+        const resultado =
+            await worker.recognize(file);
+
+        await worker.terminate();
+
+        return resultado.data.text || '';
+
+    }catch(err){
+
+        throw new Error(
+            "No se pudo leer la imagen JPG/PNG"
         );
     }
 }
@@ -403,12 +446,12 @@ function extraerComprobantes(texto){
         .replace(/\s+/g,' ');
 
     /*
-        Soporta:
+        FORMATOS SOPORTADOS:
 
-        1105-000123
-        1105 000123
-        1105000123
-        1105/000123
+        1105-00012345
+        1105 00012345
+        110500012345
+        1105/00012345
     */
 
     const regex =
@@ -464,19 +507,18 @@ async function comparar(){
     resultado.innerHTML = `
         <div class="loading">
             ⚙️ Procesando archivos...
+            <br><br>
+            Si usas imágenes JPG puede tardar.
         </div>
     `;
 
     try{
 
-        /*
-            Procesamiento paralelo
-        */
-
-        const [texto1,texto2] = await Promise.all([
-            leerArchivo(f1),
-            leerArchivo(f2)
-        ]);
+        const [texto1,texto2] =
+            await Promise.all([
+                leerArchivo(f1),
+                leerArchivo(f2)
+            ]);
 
         const set1 =
             extraerComprobantes(texto1);
