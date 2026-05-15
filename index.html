@@ -9,7 +9,7 @@
 <!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-<!-- Excel -->
+<!-- EXCEL -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <!-- OCR -->
@@ -24,12 +24,12 @@
 body{
     margin:0;
     padding:20px;
-    background:#f2f5f9;
+    background:#f3f5f9;
     font-family:Arial, sans-serif;
 }
 
 .container{
-    max-width:1100px;
+    max-width:1200px;
     margin:auto;
     background:#fff;
     padding:25px;
@@ -104,6 +104,7 @@ button{
     text-align:center;
     color:#1565c0;
     font-weight:bold;
+    padding:20px;
 }
 
 .success{
@@ -158,6 +159,7 @@ button{
     max-height:300px;
     overflow:auto;
     font-family:Consolas, monospace;
+    margin-bottom:20px;
 }
 
 @media(max-width:768px){
@@ -183,6 +185,7 @@ button{
     <div class="grid">
 
         <div class="box">
+
             <label>Archivo Base</label>
 
             <input
@@ -190,9 +193,11 @@ button{
                 id="file1"
                 accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp"
             >
+
         </div>
 
         <div class="box">
+
             <label>Archivo a Comparar</label>
 
             <input
@@ -200,6 +205,7 @@ button{
                 id="file2"
                 accept=".pdf,.xlsx,.xls,.csv,.txt,.jpg,.jpeg,.png,.webp"
             >
+
         </div>
 
     </div>
@@ -222,11 +228,15 @@ button{
 
 <script>
 
+/* =========================================================
+   CONFIG PDF
+========================================================= */
+
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
 /* =========================================================
-   LEER ARCHIVO
+   LEER ARCHIVOS
 ========================================================= */
 
 async function leerArchivo(file){
@@ -351,7 +361,8 @@ async function leerPDF(file){
 
         for(let i=1;i<=pdf.numPages;i++){
 
-            const page = await pdf.getPage(i);
+            const page =
+                await pdf.getPage(i);
 
             const content =
                 await page.getTextContent();
@@ -401,6 +412,21 @@ async function leerImagen(file){
 }
 
 /* =========================================================
+   NORMALIZAR COMPROBANTE
+========================================================= */
+
+function normalizarComprobante(tipo,numero){
+
+    /*
+        00020631 -> 20631
+    */
+
+    numero = numero.replace(/^0+/,'');
+
+    return `${tipo}-${numero}`;
+}
+
+/* =========================================================
    EXTRAER COMPROBANTES
 ========================================================= */
 
@@ -417,20 +443,22 @@ function extraerComprobantes(texto){
         .replace(/\s+/g,' ');
 
     /*
-        REGEX CORREGIDO
+        ESTE REGEX AHORA:
 
-        Busca SOLO formatos reales:
+        ✔ detecta:
+            3008-20631
+            3008-00020631
+            300800020631
 
-        1105-00012345
-        1105 00012345
-        110500012345
-        1105/00012345
+        ✔ detecta:
+            1104-43826
+            1104-00043826
 
-        Y evita basura OCR.
+        ✔ evita errores OCR
     */
 
     const regex =
-    /\b(1101|1104|0104|3008|1105)[\s\-\/]{0,2}(\d{6,12})\b/g;
+    /\b(1101|1104|0104|3008|1105)\s*[-\/]?\s*0*(\d{4,12})\b/g;
 
     const encontrados = new Set();
 
@@ -440,16 +468,10 @@ function extraerComprobantes(texto){
 
         const tipo = match[1];
 
-        let numero = match[2];
+        const numero = match[2];
 
         /*
-            Elimina ceros iniciales
-        */
-
-        numero = numero.replace(/^0+/,'');
-
-        /*
-            VALIDACION REAL
+            VALIDACION
         */
 
         if(numero.length < 4){
@@ -457,20 +479,19 @@ function extraerComprobantes(texto){
         }
 
         /*
-            Evita numeros absurdos
+            NORMALIZA:
+            3008-00020631
+            ==
+            3008-20631
         */
 
-        if(
-            numero === '20631' ||
-            numero === '12345' ||
-            numero === '11111'
-        ){
-            continue;
-        }
+        const comprobante =
+            normalizarComprobante(
+                tipo,
+                numero
+            );
 
-        encontrados.add(
-            `${tipo}-${numero}`
-        );
+        encontrados.add(comprobante);
     }
 
     return encontrados;
@@ -522,15 +543,17 @@ async function comparar(){
         const set2 =
             extraerComprobantes(texto2);
 
+        /*
+            DIFERENCIAS
+        */
+
         const faltanEn2 =
-            [...set1].filter(
-                x => !set2.has(x)
-            );
+            [...set1]
+            .filter(x => !set2.has(x));
 
         const faltanEn1 =
-            [...set2].filter(
-                x => !set1.has(x)
-            );
+            [...set2]
+            .filter(x => !set1.has(x));
 
         let html = '';
 
@@ -567,7 +590,7 @@ async function comparar(){
 
             html += `
                 <div class="success">
-                    ✅ Coincidencia total
+                    ✅ Coincidencia total.
                 </div>
             `;
         }
@@ -575,14 +598,16 @@ async function comparar(){
 
             html += `
                 <div class="error">
-                    ⚠️ Se encontraron diferencias
+                    ⚠️ Se encontraron diferencias.
                 </div>
             `;
 
             if(faltanEn2.length){
 
                 html += `
-                    <h3>Faltan en Archivo 2</h3>
+                    <h3>
+                        Faltan en Archivo 2
+                    </h3>
 
                     <div class="list">
                         ${faltanEn2.join('<br>')}
@@ -593,7 +618,9 @@ async function comparar(){
             if(faltanEn1.length){
 
                 html += `
-                    <h3>Faltan en Archivo 1</h3>
+                    <h3>
+                        Faltan en Archivo 1
+                    </h3>
 
                     <div class="list">
                         ${faltanEn1.join('<br>')}
