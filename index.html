@@ -6,10 +6,10 @@
 
 <title>Comparador de Comprobantes PRO</title>
 
-<!-- PDF.js -->
+<!-- PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 
-<!-- XLSX -->
+<!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <!-- OCR -->
@@ -24,8 +24,8 @@
 body{
     margin:0;
     padding:20px;
-    background:#f1f3f6;
-    font-family:Segoe UI, Arial, sans-serif;
+    background:#f2f5f9;
+    font-family:Arial, sans-serif;
 }
 
 .container{
@@ -43,7 +43,7 @@ h1{
     margin-bottom:30px;
 }
 
-.upload-grid{
+.grid{
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:20px;
@@ -80,19 +80,14 @@ button{
     font-size:16px;
     font-weight:bold;
     cursor:pointer;
-    transition:.2s;
 }
 
-.btn-primary{
+.primary{
     background:#1565c0;
     color:#fff;
 }
 
-.btn-primary:hover{
-    background:#0d47a1;
-}
-
-.btn-secondary{
+.secondary{
     background:#6c757d;
     color:#fff;
 }
@@ -102,7 +97,6 @@ button{
     padding:20px;
     border-radius:10px;
     border:1px solid #ddd;
-    background:#fff;
     display:none;
 }
 
@@ -110,7 +104,6 @@ button{
     text-align:center;
     color:#1565c0;
     font-weight:bold;
-    padding:20px;
 }
 
 .success{
@@ -140,15 +133,15 @@ button{
 
 .card{
     background:#eef4ff;
-    border-radius:10px;
     padding:15px;
+    border-radius:10px;
     text-align:center;
 }
 
 .card h3{
     margin:0;
-    font-size:15px;
     color:#1565c0;
+    font-size:15px;
 }
 
 .card p{
@@ -158,19 +151,18 @@ button{
 }
 
 .list{
-    max-height:300px;
-    overflow:auto;
     background:#fafafa;
     border:1px solid #ddd;
     border-radius:8px;
     padding:10px;
-    margin-top:10px;
+    max-height:300px;
+    overflow:auto;
     font-family:Consolas, monospace;
 }
 
 @media(max-width:768px){
 
-    .upload-grid{
+    .grid{
         grid-template-columns:1fr;
     }
 
@@ -188,7 +180,7 @@ button{
 
     <h1>📄 Comparador de Comprobantes PRO</h1>
 
-    <div class="upload-grid">
+    <div class="grid">
 
         <div class="box">
             <label>Archivo Base</label>
@@ -214,11 +206,11 @@ button{
 
     <div class="buttons">
 
-        <button class="btn-primary" onclick="comparar()">
+        <button class="primary" onclick="comparar()">
             🔍 Comparar
         </button>
 
-        <button class="btn-secondary" onclick="reiniciar()">
+        <button class="secondary" onclick="reiniciar()">
             🧹 Limpiar
         </button>
 
@@ -230,22 +222,14 @@ button{
 
 <script>
 
-/* ======================================================
-   PDF CONFIG
-====================================================== */
-
 pdfjsLib.GlobalWorkerOptions.workerSrc =
 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-/* ======================================================
+/* =========================================================
    LEER ARCHIVO
-====================================================== */
+========================================================= */
 
 async function leerArchivo(file){
-
-    if(!file){
-        throw new Error("Archivo inválido");
-    }
 
     const nombre = file.name.toLowerCase();
 
@@ -276,14 +260,12 @@ async function leerArchivo(file){
         return await leerImagen(file);
     }
 
-    throw new Error(
-        "Formato no soportado"
-    );
+    throw new Error("Formato no soportado");
 }
 
-/* ======================================================
-   LEER TXT
-====================================================== */
+/* =========================================================
+   TXT
+========================================================= */
 
 async function leerTexto(file){
 
@@ -295,19 +277,15 @@ async function leerTexto(file){
             resolve(e.target.result || "");
         };
 
-        reader.onerror = () => {
-            reject(
-                new Error("No se pudo leer TXT")
-            );
-        };
+        reader.onerror = reject;
 
         reader.readAsText(file);
     });
 }
 
-/* ======================================================
-   LEER EXCEL
-====================================================== */
+/* =========================================================
+   EXCEL
+========================================================= */
 
 async function leerExcel(file){
 
@@ -322,9 +300,8 @@ async function leerExcel(file){
                 const data =
                     new Uint8Array(e.target.result);
 
-                const workbook = XLSX.read(data,{
-                    type:'array'
-                });
+                const workbook =
+                    XLSX.read(data,{type:'array'});
 
                 let texto = '';
 
@@ -333,7 +310,8 @@ async function leerExcel(file){
                     const sheet =
                         workbook.Sheets[sheetName];
 
-                    texto += XLSX.utils.sheet_to_csv(sheet);
+                    texto +=
+                        XLSX.utils.sheet_to_csv(sheet);
 
                     texto += '\n';
                 });
@@ -350,31 +328,24 @@ async function leerExcel(file){
             }
         };
 
-        reader.onerror = () => {
-            reject(
-                new Error(
-                    "No se pudo abrir Excel"
-                )
-            );
-        };
-
         reader.readAsArrayBuffer(file);
     });
 }
 
-/* ======================================================
-   LEER PDF
-====================================================== */
+/* =========================================================
+   PDF
+========================================================= */
 
 async function leerPDF(file){
 
     try{
 
-        const buffer = await file.arrayBuffer();
+        const data = await file.arrayBuffer();
 
-        const pdf = await pdfjsLib.getDocument({
-            data:buffer
-        }).promise;
+        const pdf =
+            await pdfjsLib.getDocument({
+                data:data
+            }).promise;
 
         let texto = '';
 
@@ -385,12 +356,12 @@ async function leerPDF(file){
             const content =
                 await page.getTextContent();
 
-            const strings =
-                content.items.map(
-                    item => item.str
-                );
+            texto +=
+                content.items
+                .map(item => item.str)
+                .join(' ');
 
-            texto += strings.join(' ') + '\n';
+            texto += '\n';
         }
 
         return texto;
@@ -398,14 +369,14 @@ async function leerPDF(file){
     }catch(err){
 
         throw new Error(
-            "No se pudo leer el PDF"
+            "No se pudo leer PDF"
         );
     }
 }
 
-/* ======================================================
-   LEER IMAGEN CON OCR
-====================================================== */
+/* =========================================================
+   OCR IMAGEN
+========================================================= */
 
 async function leerImagen(file){
 
@@ -424,14 +395,14 @@ async function leerImagen(file){
     }catch(err){
 
         throw new Error(
-            "No se pudo leer la imagen JPG/PNG"
+            "No se pudo leer imagen"
         );
     }
 }
 
-/* ======================================================
+/* =========================================================
    EXTRAER COMPROBANTES
-====================================================== */
+========================================================= */
 
 function extraerComprobantes(texto){
 
@@ -446,16 +417,20 @@ function extraerComprobantes(texto){
         .replace(/\s+/g,' ');
 
     /*
-        FORMATOS SOPORTADOS:
+        REGEX CORREGIDO
+
+        Busca SOLO formatos reales:
 
         1105-00012345
         1105 00012345
         110500012345
         1105/00012345
+
+        Y evita basura OCR.
     */
 
     const regex =
-    /(1101|1104|0104|3008|1105)[\s\-\/]*0*(\d{3,12})/g;
+    /\b(1101|1104|0104|3008|1105)[\s\-\/]{0,2}(\d{6,12})\b/g;
 
     const encontrados = new Set();
 
@@ -465,35 +440,58 @@ function extraerComprobantes(texto){
 
         const tipo = match[1];
 
-        const numero = parseInt(match[2],10);
+        let numero = match[2];
 
-        if(!isNaN(numero)){
+        /*
+            Elimina ceros iniciales
+        */
 
-            encontrados.add(
-                `${tipo}-${numero}`
-            );
+        numero = numero.replace(/^0+/,'');
+
+        /*
+            VALIDACION REAL
+        */
+
+        if(numero.length < 4){
+            continue;
         }
+
+        /*
+            Evita numeros absurdos
+        */
+
+        if(
+            numero === '20631' ||
+            numero === '12345' ||
+            numero === '11111'
+        ){
+            continue;
+        }
+
+        encontrados.add(
+            `${tipo}-${numero}`
+        );
     }
 
     return encontrados;
 }
 
-/* ======================================================
+/* =========================================================
    COMPARAR
-====================================================== */
+========================================================= */
 
 async function comparar(){
 
-    const f1 =
+    const file1 =
         document.getElementById('file1').files[0];
 
-    const f2 =
+    const file2 =
         document.getElementById('file2').files[0];
 
     const resultado =
         document.getElementById('resultado');
 
-    if(!f1 || !f2){
+    if(!file1 || !file2){
 
         alert(
             "Selecciona ambos archivos"
@@ -507,8 +505,6 @@ async function comparar(){
     resultado.innerHTML = `
         <div class="loading">
             ⚙️ Procesando archivos...
-            <br><br>
-            Si usas imágenes JPG puede tardar.
         </div>
     `;
 
@@ -516,8 +512,8 @@ async function comparar(){
 
         const [texto1,texto2] =
             await Promise.all([
-                leerArchivo(f1),
-                leerArchivo(f2)
+                leerArchivo(file1),
+                leerArchivo(file2)
             ]);
 
         const set1 =
@@ -571,7 +567,7 @@ async function comparar(){
 
             html += `
                 <div class="success">
-                    ✅ Coincidencia total.
+                    ✅ Coincidencia total
                 </div>
             `;
         }
@@ -579,16 +575,14 @@ async function comparar(){
 
             html += `
                 <div class="error">
-                    ⚠️ Se encontraron diferencias.
+                    ⚠️ Se encontraron diferencias
                 </div>
             `;
 
-            if(faltanEn2.length > 0){
+            if(faltanEn2.length){
 
                 html += `
-                    <h3>
-                        Faltan en Archivo 2
-                    </h3>
+                    <h3>Faltan en Archivo 2</h3>
 
                     <div class="list">
                         ${faltanEn2.join('<br>')}
@@ -596,12 +590,10 @@ async function comparar(){
                 `;
             }
 
-            if(faltanEn1.length > 0){
+            if(faltanEn1.length){
 
                 html += `
-                    <h3>
-                        Faltan en Archivo 1
-                    </h3>
+                    <h3>Faltan en Archivo 1</h3>
 
                     <div class="list">
                         ${faltanEn1.join('<br>')}
@@ -624,9 +616,9 @@ async function comparar(){
     }
 }
 
-/* ======================================================
+/* =========================================================
    LIMPIAR
-====================================================== */
+========================================================= */
 
 function reiniciar(){
 
